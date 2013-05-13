@@ -315,6 +315,7 @@ class class_c extends Class_ {
     public AbstractSymbol getFilename() { return filename; }
     public AbstractSymbol getName()     { return name; }
     public AbstractSymbol getParent()   { return parent; }
+	public Features getFeatures()       { return features; }
 
     public void dump_with_types(PrintStream out, int n) {
         dump_line(out, n);

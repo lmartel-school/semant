@@ -1,13 +1,15 @@
 import java.io.PrintStream;
-
+import java.util.*;
 /** This class may be used to contain the semantic information such as
  * the inheritance graph.  You may use it or not as you like: it is only
  * here to provide a container for the supplied methods.  */
 class ClassTable {
   private int semantErrors;
   private PrintStream errorStream;
-
-    /** Creates data structures representing basic Cool classes (Object,
+  
+  private HashMap<AbstractSymbol, class_c> classes;
+  
+  /** Creates data structures representing basic Cool classes (Object,
      * IO, Int, Bool, String).  Please note: as is this method does not
      * do anything useful; you will need to edit it to make if do what
      * you want.
@@ -166,18 +168,136 @@ class ClassTable {
 
 	/* Do somethind with Object_class, IO_class, Int_class,
  Bool_class, and Str_class here */
-
+	   
+	   classes.put(Object_class.getName(), Object_class);
+	   classes.put(IO_class.getName(), IO_class);
+	   classes.put(Int_class.getName(), Int_class);
+	   classes.put(Bool_class.getName(), Bool_class);
+	   classes.put(Str_class.getName(), Str_class);
 }
 
 
 
-public ClassTable(Classes cls) {
-	semantErrors = 0;
-	errorStream = System.err;
+	public ClassTable(Classes cls) {
+		semantErrors = 0;
+		errorStream = System.err;
+		
+		classes = new HashMap<AbstractSymbol, class_c>();
+		installBasicClasses();
+		for (int i = 0; i < cls.getLength(); i++) {
+			class_c currClass = (class_c)cls.getNth(i);
+			if (classes.containsKey(currClass.getName())) {
+				semantError(currClass).println(
+				  "Class " + currClass.getName() + " is double defined.");
+			}
+			classes.put(currClass.getName(), currClass);
+		}
+		
+		for (Map.Entry<AbstractSymbol, class_c> kvPair :
+				 classes.entrySet()) {
+			verifyInheritanceGraph(kvPair);
+			/* not implemented yet
+			   verifyDistinctFeatureNames(kvPair);
+			   //checks instance var names, method names, and method params.
+			   
+			   verifyCorrectMethodInheritance(kvPair);
+			*/   
+		}
+	}
 	
-	/* fill this in */
-}
+	public class_c getClass(AbstractSymbol sym) {
+		class_c rVal = classes.get(sym);
+		if (rVal == null) {
+			semantError().println("Asked for invalid class " + sym);
+		}
+		return rVal;
+	}
+	
+	public boolean isSubClassOf(AbstractSymbol ch, AbstractSymbol par) {
+		class_c parentClass = classes.get(par);
+		
+		if (parentClass == null) {
+			semantError().println("class " + par + " does not exist.");
+		}
+		while (ch != par) {
+			if (ch == TreeConstants.Object_) {
+				return false;
+			} else {
+				class_c currClass = classes.get(ch);
+				if (currClass == null) {
+					semantError().println("class " + ch + " does not exist.");
+				}
+				ch = currClass.getParent();
+			}
+		}
+		return true;
+	}
 
+	public class_c leastUpperBound(AbstractSymbol one, AbstractSymbol two)
+	{
+		Set<AbstractSymbol> found = new TreeSet<AbstractSymbol>();
+		while (one != TreeConstants.Object_) {
+			found.add(one);
+			class_c currClass = classes.get(one);
+			if (currClass == null) {
+				semantError().println("class " + one + " does not exist.");
+			}
+			one = currClass.getParent();
+		}
+		found.add(TreeConstants.Object_);
+		
+		while (!found.contains(two)) {
+			class_c currClass = classes.get(two);
+			if (currClass == null) {
+				semantError().println("class " + two + " does not exist.");
+			}
+			two = currClass.getParent();
+		}
+		
+		return classes.get(two);
+		
+	}
+
+	public Features getMethods(AbstractSymbol className) {
+		class_c currClass = classes.get(className);
+		if (currClass == null) {
+			semantError().println("class " + className + " does not exist.");
+		}
+
+		Features allFeats = currClass.getFeatures();
+		Features methods = new Features(allFeats.getLineNumber());
+		for (int i = 0; i < allFeats.getLength(); i++) {
+			Feature feat = (Feature) allFeats.getNth(i);
+			if (feat instanceof method) {
+				methods.appendElement(feat);
+			}
+		}
+		return methods;
+	}
+	
+	private void verifyInheritanceGraph(Map.Entry<AbstractSymbol,
+										class_c> kvPair) {
+		AbstractSymbol currClassSym = kvPair.getKey();
+		class_c currClass = kvPair.getValue();
+		Set<AbstractSymbol> found = new TreeSet<AbstractSymbol>();
+		while (currClassSym != TreeConstants.Object_) {
+			if (found.contains(currClassSym)) {
+				semantError(currClass).println(
+					"Inheritance cycle detected at class " + currClassSym);
+			}
+			found.add(currClassSym);
+			
+			AbstractSymbol parentClassSym  = currClass.getParent();
+			class_c parentClass = classes.get(parentClassSym);
+			if (parentClass == null) {
+				semantError(currClass).println("subclass " + currClass
+					 + "attempting to inherit from undefined super-class " + parentClass);
+			}
+			currClassSym = parentClassSym;
+			currClass = parentClass;
+		} //while
+	} // verifyInheritanceGraph
+	
     /** Prints line number and file name of the given class.
      *
      * Also increments semantic error count.
