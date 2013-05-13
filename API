@@ -1,0 +1,66 @@
+//Context API
+private SymbolTable variables;
+
+private ClassTable classes;
+
+private AbstractSymbol currentClass;
+
+//for debugging purposes
+private int scopeCount;
+
+/* PUBLIC: */
+
+//sets "current class" ivar and loads all class' attrs into symbol table
+public void enterClass(class_c class);
+
+//nulls current class and pops attrs off symbol table
+public void leaveClass();
+
+//creates a new scope and adds all parameters (from getParameters) to the symboltable
+public void enterMethod(method m);
+
+//pops one scope
+public void leaveMethod();
+
+//creates a new scope and adds its single variable binding to that scope
+public void enterBranch(branch b);
+
+//pops one scope
+public void leaveBranch();
+
+//creates a new scope and adds the single variable bound to the let to that scope
+public void enterLet(let l);
+
+//pops one scope
+public void leaveLet();
+
+//calls getParamters (currentClass, methodName);
+public Formals getParameters(AbstractSymbol methodName);
+
+//gets the class from the class table, finds the method within the class, and returns its formals list
+public Formals getParameters(AbstractSymbol className, AbstractSymbol methodName);
+
+//calls getReturnType(currentClass, methodName);
+public AbstractSymbol getReturnType(AbstractSymbol methodName);
+
+//gets the class from the class table, finds the method within the class, and returns its return type
+public AbstractSymbol getReturnType(AbstractSymbol className, AbstractSymbol methodName);
+
+//Also, hooks into the ClassTable API:
+
+getClass
+isSubclassOf
+leastUpperBound
+
+/* END */
+
+//ClassTable API
+public class_c getClass(AbstractSymbol name);
+
+public boolean isSubclassOf(AbstractSymbol child, AbstractSymbol parent);
+
+//supremum!
+public class_c leastUpperBound(AbstractSymbol first, AbstractSymbol second);
+
+//returns a list of features that includes ONLY the methods of the class (not the attributes)
+public Features getMethods(AbstractSymbol name);
