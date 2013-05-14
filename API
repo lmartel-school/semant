@@ -11,7 +11,7 @@ private int scopeCount;
 /* PUBLIC: */
 
 //sets "current class" ivar and loads all class' attrs into symbol table
-public void enterClass(class_c class);
+public void enterClass(class_c c);
 
 //nulls current class and pops attrs off symbol table
 public void leaveClass();
@@ -33,6 +33,15 @@ public void enterLet(let l);
 
 //pops one scope
 public void leaveLet();
+
+//returns the type of the given variable (in the current scope) as an AbstractSymbol.
+//returns null if the variable does not exist in the current scope.
+//looks at all accessible scopes, not just the topmost.
+public AbstractSymbol getVarType(AbstractSymbol name);
+
+//checks whether the given variable is already defined in the current scope.
+//looks at all accessible scopes, not just the topmost.
+public boolean varDefined(AbstractSymbol name);
 
 //calls getParamters (currentClass, methodName);
 public Formals getParameters(AbstractSymbol methodName);

@@ -258,21 +258,29 @@ class ClassTable {
 		
 	}
 
-	public Features getMethods(AbstractSymbol className) {
-		class_c currClass = classes.get(className);
-		if (currClass == null) {
-			semantError().println("class " + className + " does not exist.");
-		}
+  private Features getElements(AbstractSymbol className, Class c){
+    class_c currClass = classes.get(className);
+    if (currClass == null) {
+      semantError().println("class " + className + " does not exist.");
+    }
 
-		Features allFeats = currClass.getFeatures();
-		Features methods = new Features(allFeats.getLineNumber());
-		for (int i = 0; i < allFeats.getLength(); i++) {
-			Feature feat = (Feature) allFeats.getNth(i);
-			if (feat instanceof method) {
-				methods.appendElement(feat);
-			}
-		}
-		return methods;
+    Features allFeats = currClass.getFeatures();
+    Features elems = new Features(allFeats.getLineNumber());
+    for (int i = 0; i < allFeats.getLength(); i++) {
+      Feature feat = (Feature) allFeats.getNth(i);
+      if (feat instanceof attr) {
+        elems.appendElement(feat);
+      }
+    }
+    return elems;
+  }
+
+  public Features getAttrs(AbstractSymbol className){
+    return getElements(className, attr.class);
+  }
+
+	public Features getMethods(AbstractSymbol className) {
+    return getElements(className, method.class);
 	}
 	
 	private void verifyInheritanceGraph(Map.Entry<AbstractSymbol,
