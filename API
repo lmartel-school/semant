@@ -1,3 +1,4 @@
+//Eventual TODO: copy descriptions into .java files
 //Context API
 private SymbolTable variables;
 
@@ -33,6 +34,10 @@ public void enterLet(let l);
 
 //pops one scope
 public void leaveLet();
+
+//returns the type of the given "new" keyword node
+public AbstractSymbol newKeywordType(new_ n){
+
 
 //returns the type of the given variable (in the current scope) as an AbstractSymbol.
 //returns null if the variable does not exist in the current scope.
@@ -71,5 +76,8 @@ public boolean isSubclassOf(AbstractSymbol child, AbstractSymbol parent);
 //supremum!
 public class_c leastUpperBound(AbstractSymbol first, AbstractSymbol second);
 
-//returns a list of features that includes ONLY the methods of the class (not the attributes)
+//returns a list of features that includes ONLY the methods of the class (not the attributes), including inherited methods.
 public Features getMethods(AbstractSymbol name);
+
+//returns list of attributes of the class (no methods), including inherited attributes.
+public Features getAttrs(AbstractSymbol name);

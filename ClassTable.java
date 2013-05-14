@@ -258,13 +258,30 @@ class ClassTable {
 		
 	}
 
+  //gets the features of the current class and all its parents
+  private Features getAllFeatures(class_c cur){
+    Features curFeats = cur.getFeatures();
+    Features allFeats = new Features(curFeats.getLineNumber());
+    while(true){
+      for (int i = 0; i < curFeats.getLength(); i++) {
+        allFeats.appendElement(curFeats.getNth(i));
+      }
+      if(cur.getName() == TreeConstants.Object_) break;
+      cur = getClass(cur.getParent());
+      curFeats = cur.getFeatures();
+    }
+    return allFeats;
+  }
+
+  //TODO: make this gather elements of all parent classes as well.
+  //This should return all attrs/methods, including inherited ones.
   private Features getElements(AbstractSymbol className, Class c){
     class_c currClass = classes.get(className);
     if (currClass == null) {
       semantError().println("class " + className + " does not exist.");
     }
 
-    Features allFeats = currClass.getFeatures();
+    Features allFeats = getAllFeatures(currClass);
     Features elems = new Features(allFeats.getLineNumber());
     for (int i = 0; i < allFeats.getLength(); i++) {
       Feature feat = (Feature) allFeats.getNth(i);
