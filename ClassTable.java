@@ -262,16 +262,52 @@ class ClassTable {
   private Features getAllFeatures(class_c cur){
     Features curFeats = cur.getFeatures();
     Features allFeats = new Features(curFeats.getLineNumber());
+	TreeSet<AbstractSymbol> attrs = new TreeSet<AbstractSymbol>();
+	TreeMap<AbstractSymbol, method> methods = new TreeMap<AbstractSymbol, method>();
+	//use to verify attrs are not redefined, and inherited methods have
+	//the same signatures
     while(true){
       for (int i = 0; i < curFeats.getLength(); i++) {
         allFeats.appendElement(curFeats.getNth(i));
-      }
+		if (curFeats.getNth(i) instanceof attr) {
+			if (attrs.contains(((attr)curFeats.getNth(i)).getName())) {
+				semantError(cur).println("Attribute " +
+										 ((attr)curFeats.getNth(i)).getName() + " in class " + cur + "illegally redefined in subclass.");
+			}
+		} else { // is method, check if overloaded signature matches
+			method curMethod = (method)curFeats.getNth(i);
+			if (methods.containsKey(curMethod.getName())) {
+				if (!hasIdenticalSignature(curMethod,
+										   methods.get(curMethod.getName()))) {
+					
+					semantError(cur).println("Non-identical	methodsignature in overloaded method call " + curMethod + " in class " + cur);
+				} //end if !hasIdenticalSignature
+			} else { // new method name
+				methods.put(curMethod.getName(), curMethod);
+			}
+		}
+	  }
       if(cur.getName() == TreeConstants.Object_) break;
       cur = getClass(cur.getParent());
       curFeats = cur.getFeatures();
-    }
-    return allFeats;
+	}
+	return allFeats;
   }
+	
+	private boolean hasIdenticalSignature(method one, method two) {
+		Formals oneF = one.getFormals();
+		Formals twoF = two.getFormals();
+		if (one.getReturnType() != two.getReturnType() ||
+			oneF.getLength() != twoF.getLength()) return false;
+
+		for (int i = 0; i < oneF.getLength(); i++) {
+			if (  ((formalc)oneF.getNth(i)).getType() != 
+				  ((formalc)twoF.getNth(i)).getType() )
+				return false;
+			
+		}
+		return true;
+	}
 
   //TODO: make this gather elements of all parent classes as well.
   //This should return all attrs/methods, including inherited ones.

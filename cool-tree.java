@@ -357,6 +357,12 @@ class method extends Feature {
         return_type = a3;
         expr = a4;
     }
+
+	public AbstractSymbol getName() {return name;}
+	public Formals getFormals() {return formals; }
+	public AbstractSymbol getReturnType() { return return_type;}
+	public Expression getExpr() {return expr;};
+
     public TreeNode copy() {
         return new method(lineNumber, copy_AbstractSymbol(name), (Formals)formals.copy(), copy_AbstractSymbol(return_type), (Expression)expr.copy());
     }
@@ -422,6 +428,10 @@ class attr extends Feature {
 	init.dump_with_types(out, n + 2);
     }
 
+	public AbstractSymbol getName() { return name; }
+	public AbstractSymbol getType() { return type_decl; }
+	public Expression getExpr() { return init; }
+
 }
 
 
@@ -442,6 +452,8 @@ class formalc extends Formal {
         name = a1;
         type_decl = a2;
     }
+
+	public AbstractSymbol getType() {return type_decl;}
     public TreeNode copy() {
         return new formalc(lineNumber, copy_AbstractSymbol(name), copy_AbstractSymbol(type_decl));
     }
