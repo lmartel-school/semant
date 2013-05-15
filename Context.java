@@ -122,6 +122,17 @@ class Context {
     return returnType;
   }
 
+  /* Hooks into ClassTable */
+
+  public boolean isSubClassOf(AbstractSymbol child, AbstractSymbol parent){
+    return classes.isSubClassOf(child, parent);
+  }
+
+  public class_c leastUpperBound(AbstractSymbol one, AbstractSymbol two){
+    return classes.leastUpperBound(one, two);
+  }
+
+
   /* Begin helper methods */
 
   private void pushScope(){
