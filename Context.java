@@ -17,23 +17,22 @@ class Context {
   private VariableEnvironment variables;
   private ClassTable classes;
   private AbstractSymbol currentClass;
-  private int scopeCount; //TODO: move to symbol table
 
   public Context(ClassTable classes){
-    variables = new SymbolTable();
+    variables = new VariableEnvironment();
     this.classes = classes;
     currentClass = null;
-    scopeCount = 0;
   }
 
-  public void enterClass(class_c c){
+  public void enterClass(class_c cur){
     pushScope();
-    currentClass = c.getName();
-    Features attrs = classes.getAttrs(c.getName());
-    for(attr a : attrs.getElements()){
-      AbstractSymbol type = a.type_decl;
-      if(type == TreeConstants.SELF_TYPE) type = c.getName();
-      variables.addId(a.name, type);
+    currentClass = cur.getName();
+    Features attrs = classes.getAttrs(cur.getName());
+    for(int i = 0; i < attrs.getLength(); i++){
+      attr nextAttr = (attr) attrs.getNth(i);
+      AbstractSymbol type = nextAttr.type_decl;
+      if(type == TreeConstants.SELF_TYPE) type = cur.getName();
+      variables.addId(nextAttr.name, type);
     }
   }
 
@@ -42,11 +41,12 @@ class Context {
     currentClass = null;
   }
 
-  public void enterMethod(method m){
+  public void enterMethod(method met){
     pushScope();
-    Formals params = getParameters(m.name);
-    assert m != null : "tried to enter method that does not exist in this class"
-    for(formalc f : params.getElements()){
+    Formals params = getParameters(met.name);
+    assert params != null : "tried to enter method that does not exist in this class";
+    for(int i = 0; i < params.getLength(); i++){
+      formalc f = (formalc) params.getNth(i);
       variables.addId(f.name, f.type_decl);
     }
   }
@@ -81,7 +81,7 @@ class Context {
   }
 
   public AbstractSymbol getVarType(AbstractSymbol name){
-    return variables.lookup(name);
+    return (AbstractSymbol) variables.lookup(name);
   }
 
   public boolean varDefined(AbstractSymbol name){
@@ -95,8 +95,9 @@ class Context {
   public Formals getParameters(AbstractSymbol className, AbstractSymbol methodName){
     assert className != null;
     Features classMethods = classes.getMethods(className);
-    for(Feature f : classMethods.getElements()){
-      if(f.name.equals(methodName)) return f.formals;
+    for(int i = 0; i < classMethods.getLength(); i++){
+      method met = (method) classMethods.getNth(i);
+      if(met.name.equals(methodName)) return met.formals;
     }
     return null;
   }
@@ -109,9 +110,10 @@ class Context {
     assert className != null;
     Features classMethods = classes.getMethods(className);
     AbstractSymbol returnType = null;
-    for(Feature f : classMethods.getElements()){
-      if(f.name.equals(methodName)){
-        returnType = f.return_type;
+    for(int i = 0; i < classMethods.getLength(); i++){
+      method met = (method) classMethods.getNth(i);
+      if(met.name.equals(methodName)){
+        returnType = met.return_type;
         break;
       }
     }
@@ -124,12 +126,9 @@ class Context {
 
   private void pushScope(){
     variables.enterScope();
-    scopeCount++;
   }
 
   private void popScope(){
     variables.exitScope();
-    scopeCount--;
-    assert scopeCount >= 0 : "scope count negative, abandon ship";
   }
 }
