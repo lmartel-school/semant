@@ -56,6 +56,13 @@ class Classes extends ListNode {
     public TreeNode copy() {
         return new Classes(lineNumber, copyElements());
     }
+
+    public void semant(Context context){
+        for(int i = 0; i < getLength(); i++){
+            class_c nextClass = (class_c) getNth(i);
+            nextClass.semant(context);
+        }
+    }
 }
 
 
@@ -148,6 +155,10 @@ abstract class Expression extends TreeNode {
         else
             { out.println(Utilities.pad(n) + ": _no_type"); }
     }
+
+    //ensures all Expression subclasses have a semant(context)
+    //TODO: temporarily comment this out to quiet compiler errors if desired.
+    public abstract AbstractSymbol semant(Context context);
 
 }
 
@@ -267,7 +278,7 @@ class programc extends Program {
     Context context = new Context(new ClassTable(classes));
 	
 	/* some semantic analysis code may go here */
-    //TODO: classes.semant(context);
+    classes.semant(context);
 
 	if (context.errors()) {
 	    System.err.println("Compilation halted due to static semantic errors.");
@@ -332,6 +343,26 @@ class class_c extends Class_ {
         out.println(Utilities.pad(n + 2) + ")");
     }
 
+    public void semant(Context context){
+        context.enterClass(this);
+
+        //Typecheck attributes (attributes visible within initializations)
+        Features attrs = context.getAttrs(name);
+        for(Enumeration e = attrs.getElements(); e.hasMoreElements();){
+            attr a = (attr) e.nextElement();
+            a.semant(context);
+        }
+
+        //semant all methods of class
+        Features methods = context.getMethods(name);
+        for(Enumeration e = methods.getElements(); e.hasMoreElements();){
+            method met = (method) e.nextElement();
+            met.semant(context);
+        }
+
+        context.leaveClass();
+    }
+
 }
 
 
@@ -381,6 +412,14 @@ class method extends Feature {
 	expr.dump_with_types(out, n + 2);
     }
 
+    public void semant(Context context){
+        context.enterMethod(this);
+
+        expr.semant(context);
+
+        context.leaveMethod();
+    }
+
 }
 
 
@@ -421,6 +460,13 @@ class attr extends Feature {
         dump_AbstractSymbol(out, n + 2, name);
         dump_AbstractSymbol(out, n + 2, type_decl);
 	init.dump_with_types(out, n + 2);
+    }
+
+    public void semant(Context context){
+        AbstractSymbol initType = init.semant(context);
+        if(initType != null && !context.isSubclassOf(initType, type_decl)){
+            context.semantError(this).println("Attribute initialization: invalid type");
+        }
     }
 
 }

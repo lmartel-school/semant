@@ -1,3 +1,4 @@
+import java.io.PrintStream;
 import java.util.*;
 
 /**
@@ -81,10 +82,12 @@ class Context {
   }
 
   public AbstractSymbol getVarType(AbstractSymbol name){
+    if(name == TreeConstants.self) return currentClass;
     return (AbstractSymbol) variables.lookup(name);
   }
 
   public boolean varDefined(AbstractSymbol name){
+    if(name == TreeConstants.self) return true;
     return getVarType(name) != null;
   }
 
@@ -124,12 +127,25 @@ class Context {
 
   /* Hooks into ClassTable */
 
-  public boolean isSubClassOf(AbstractSymbol child, AbstractSymbol parent){
+  public boolean isSubclassOf(AbstractSymbol child, AbstractSymbol parent){
     return classes.isSubClassOf(child, parent);
   }
 
   public class_c leastUpperBound(AbstractSymbol one, AbstractSymbol two){
     return classes.leastUpperBound(one, two);
+  }
+
+  public Features getAttrs(AbstractSymbol name){
+    return classes.getAttrs(name);
+  }
+
+  public Features getMethods(AbstractSymbol name){
+    return classes.getMethods(name);
+  }
+
+  public PrintStream semantError(TreeNode t){
+    assert currentClass != null : "extra-class semant errors should be handled in the class table";
+    return classes.semantError(classes.getClass(currentClass).getFilename(), t);
   }
 
   public boolean errors(){
