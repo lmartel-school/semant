@@ -259,41 +259,96 @@ class ClassTable {
 	}
 
   //gets the features of the current class and all its parents
-  private Features getAllFeatures(class_c cur){
+	private Features getAllFeatures(class_c cur, boolean printUnique){
     Features curFeats = cur.getFeatures();
     Features allFeats = new Features(curFeats.getLineNumber());
 	TreeSet<AbstractSymbol> attrs = new TreeSet<AbstractSymbol>();
 	TreeMap<AbstractSymbol, method> methods = new TreeMap<AbstractSymbol, method>();
 	//use to verify attrs are not redefined, and inherited methods have
 	//the same signatures
-    while(true){
-      for (int i = 0; i < curFeats.getLength(); i++) {
-        allFeats.appendElement(curFeats.getNth(i));
-		if (curFeats.getNth(i) instanceof attr) {
-			if (attrs.contains(((attr)curFeats.getNth(i)).getName())) {
-				semantError(cur).println("Attribute " +
-										 ((attr)curFeats.getNth(i)).getName() + " in class " + cur + "illegally redefined in subclass.");
-			}
-		} else { // is method, check if overloaded signature matches
-			method curMethod = (method)curFeats.getNth(i);
-			if (methods.containsKey(curMethod.getName())) {
-				if (!hasIdenticalSignature(curMethod,
-										   methods.get(curMethod.getName()))) {
-					
-					semantError(cur).println("Non-identical	methodsignature in overloaded method call " + curMethod + " in class " + cur);
-				} //end if !hasIdenticalSignature
-			} else { // new method name
-				methods.put(curMethod.getName(), curMethod);
-			}
-		}
-	  }
-      if(cur.getName() == TreeConstants.Object_) break;
-      cur = getClass(cur.getParent());
-      curFeats = cur.getFeatures();
+
+
+	
+	/* This has to add ALL features from the immediate level, but then
+	   prune out duplicates at inherited levels, so this happens in 2
+	   stages. The checkUnique flag is used to print error messages during
+	   the one pass intended to ensure well formed classes (get, but keeps it
+	   from re-printing error in other calls.*/
+	addImmediateFeatures(cur, curFeats, allFeats, attrs, methods, printUnique);
+	if (cur.getName() != TreeConstants.Object_) {
+		addInheritedFeatures(getClass(cur.getParent()), 
+							 getClass(cur.getParent()).getFeatures(),
+							allFeats, attrs, methods, printUnique);
 	}
 	return allFeats;
   }
+	private void addImmediateFeatures(class_c cur, Features curFeats,
+									 Features allFeats, Set<AbstractSymbol> attrs,
+	   Map<AbstractSymbol, method> methods, boolean printErr){
+		for (int i = 0; i < curFeats.getLength(); i++) {
+			if (curFeats.getNth(i) instanceof attr) {
+				if (attrs.contains(((attr)curFeats.getNth(i)).getName())) {
+					if (printErr) {
+						semantError(cur).println(
+						  	 "Attribute " + ((attr)curFeats.getNth(i)).getName()
+							 + " in class " + cur + "illegally double defined.");
+					}
+				} else { //correctly defined new attribute
+					allFeats.appendElement(curFeats.getNth(i));
+				}
+			} else { // is method, check if overloaded signature matches
+				method curMethod = (method)curFeats.getNth(i);
+				if (methods.containsKey(curMethod.getName())) {
+					if (printErr) {
+						semantError(cur).println("Method " + curMethod + 
+						 " double defined in class " + cur);
+					}
+				} else { // new method name
+					methods.put(curMethod.getName(), curMethod);
+					allFeats.appendElement(curFeats.getNth(i));
+					//don't include duplicates of method names
+				}
+			} //end if attr/methos
+		} // end for each formal
+	} // end function
 	
+	private void addInheritedFeatures(class_c cur, Features curFeats, Features
+				allFeats, Set<AbstractSymbol> attrs, Map<AbstractSymbol, method> methods,
+				boolean printErr){
+		while(true){
+			for (int i = 0; i < curFeats.getLength(); i++) {
+				if (curFeats.getNth(i) instanceof attr) {
+					if (attrs.contains(((attr)curFeats.getNth(i)).getName())) {
+						if (printErr) {
+							semantError(cur).println(
+						    "Attribute " + ((attr)curFeats.getNth(i)).getName()
+						  + " in class " + cur + "illegally redefined in subclass.");
+						}
+					} else { //correctly defined new attribute
+						allFeats.appendElement(curFeats.getNth(i));
+					}
+				} else { // is method, check if overloaded signature matches
+					method curMethod = (method)curFeats.getNth(i);
+					if (methods.containsKey(curMethod.getName())) {
+						if (!hasIdenticalSignature(curMethod,
+												   methods.get(curMethod.getName())))
+							{
+								if (printErr) {
+									semantError(cur).println("Non-identical	methodsignature in overloaded method call " + curMethod + " in class " + cur);
+								}
+							} //end if !hasIdenticalSignature
+					} else { // new method name
+						methods.put(curMethod.getName(), curMethod);
+						allFeats.appendElement(curFeats.getNth(i));
+						//don't include duplicates of method names
+					}
+				}
+			}
+			if(cur.getName() == TreeConstants.Object_) return;
+			cur = getClass(cur.getParent());
+			curFeats = cur.getFeatures();
+		}
+	}
 	private boolean hasIdenticalSignature(method one, method two) {
 		Formals oneF = one.getFormals();
 		Formals twoF = two.getFormals();
@@ -317,23 +372,26 @@ class ClassTable {
       semantError().println("class " + className + " does not exist.");
     }
 
-    Features allFeats = getAllFeatures(currClass);
-    Features elems = new Features(allFeats.getLineNumber());
+    Features allFeats = getAllFeatures(currClass, false);
+	//false to avoid double printing error messages
+
+	/* We don't need this right? Am I missing something? -T
+	  Features elems = new Features(allFeats.getLineNumber());
     for (int i = 0; i < allFeats.getLength(); i++) {
       Feature feat = (Feature) allFeats.getNth(i);
       if (feat instanceof attr) {
         elems.appendElement(feat);
       }
-    }
-    return elems;
+	  } */
+    return allFeats;
   }
-
-  public Features getAttrs(AbstractSymbol className){
-    return getElements(className, attr.class);
-  }
-
+	
+	public Features getAttrs(AbstractSymbol className){
+		return getElements(className, attr.class);
+	}
+	
 	public Features getMethods(AbstractSymbol className) {
-    return getElements(className, method.class);
+		return getElements(className, method.class);
 	}
 	
 	private void verifyInheritanceGraph(Map.Entry<AbstractSymbol,

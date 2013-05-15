@@ -19,8 +19,11 @@ class Context {
   private AbstractSymbol currentClass;
   private int scopeCount; //TODO: move to symbol table
 
+	static final boolean DEBUG = true;
+
   public Context(ClassTable classes){
-    variables = new SymbolTable();
+	  //variables = new SymbolTable(); got a compiler error here
+	  variables = new VariableEnvironment();
     this.classes = classes;
     currentClass = null;
     scopeCount = 0;
@@ -45,7 +48,7 @@ class Context {
   public void enterMethod(method m){
     pushScope();
     Formals params = getParameters(m.name);
-    assert m != null : "tried to enter method that does not exist in this class"
+    assert m != null : "tried to enter method that does not exist in this class";
     for(formalc f : params.getElements()){
       variables.addId(f.name, f.type_decl);
     }
@@ -119,6 +122,13 @@ class Context {
     if(returnType == TreeConstants.SELF_TYPE) return className;
     return returnType;
   }
+
+	public void verifyWellFormedClass(class_c cl) {
+		/* Call getAllFeatures, which checks for inheritance errors and
+		   duplicated attr/method names. Values aren't needed here, so no
+		   return. */
+		classes.getAllFeatures(cl, true);
+	}
 
   /* Begin helper methods */
 
