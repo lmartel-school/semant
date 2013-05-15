@@ -195,7 +195,7 @@ class ClassTable {
 		
 		for (Map.Entry<AbstractSymbol, class_c> kvPair :
 				 classes.entrySet()) {
-			verifyInheritanceGraph(kvPair);
+			verifyInheritanceGraph(kvPair); //if class heirarchy is malformed, we shouldn't semant the program
 			/* not implemented yet
 			   verifyDistinctFeatureNames(kvPair);
 			   //checks instance var names, method names, and method params.
@@ -393,7 +393,8 @@ class ClassTable {
 	public Features getMethods(AbstractSymbol className) {
 		return getElements(className, method.class);
 	}
-	
+  
+  //Do classes with no parent have No_class as their parent field or Object?	
 	private void verifyInheritanceGraph(Map.Entry<AbstractSymbol,
 										class_c> kvPair) {
 		AbstractSymbol currClassSym = kvPair.getKey();

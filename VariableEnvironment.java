@@ -22,4 +22,8 @@ class VariableEnvironment extends SymbolTable {
     scopeCount--;
     assert scopeCount >= 0 : "scope count negative, abandon ship";
   }
+
+  public int getScopeCount(){
+    return scopeCount;
+  }
 }

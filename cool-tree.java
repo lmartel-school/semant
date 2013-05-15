@@ -56,6 +56,13 @@ class Classes extends ListNode {
     public TreeNode copy() {
         return new Classes(lineNumber, copyElements());
     }
+
+    public void semant(Context context){
+        for(int i = 0; i < getLength(); i++){
+            class_c nextClass = (class_c) getNth(i);
+            nextClass.semant(context);
+        }
+    }
 }
 
 
@@ -149,7 +156,11 @@ abstract class Expression extends TreeNode {
         else
             { out.println(Utilities.pad(n) + ": _no_type"); }
     }
-	
+
+    //ensures all Expression subclasses have a semant(context)
+    //TODO: temporarily comment this out to quiet compiler errors if desired.
+    public abstract AbstractSymbol semant(Context context);
+
 }
 
 
@@ -264,25 +275,15 @@ class programc extends Program {
 		to test the complete compiler.
     */
     public void semant() {
-		/* ClassTable constructor verifies inheritance graph is acyclic
-		   any errors here will exit before further semantic analysis. */
-		if (Context.DEBUG) System.out.println("Creating class table.");
-		ClassTable classTable = new ClassTable(classes);
-		if (Context.DEBUG) {
-			System.out.println("Creating Context.");
-		}
-		Context context = new Context(classTable);
-		
-		if (classTable.errors()) {
-			System.err.println("Compilation halted due to static semantic errors.");
-			System.exit(1);
-		}
-		
-		for(int i = 0; i < classes.getLength(); i++) {
-			class_c currClass = (class_c)classes.getNth(i);
-			currClass.semant(context);		
-		}
-		
+	/* ClassTable constructor may do some semantic analysis */
+    Context context = new Context(new ClassTable(classes));
+	
+	/* some semantic analysis code may go here */
+    classes.semant(context);
+
+	if (context.errors()) {
+	    System.err.println("Compilation halted due to static semantic errors.");
+	    System.exit(1);
 	}
 }
 
@@ -352,7 +353,27 @@ class class_c extends Class_ {
         }
         out.println(Utilities.pad(n + 2) + ")");
     }
-	
+
+    public void semant(Context context){
+        context.enterClass(this);
+
+        //Typecheck attributes (attributes visible within initializations)
+        Features attrs = context.getAttrs(name);
+        for(Enumeration e = attrs.getElements(); e.hasMoreElements();){
+            attr a = (attr) e.nextElement();
+            a.semant(context);
+        }
+
+        //semant all methods of class
+        Features methods = context.getMethods(name);
+        for(Enumeration e = methods.getElements(); e.hasMoreElements();){
+            method met = (method) e.nextElement();
+            met.semant(context);
+        }
+
+        context.leaveClass();
+    }
+
 }
 
 
@@ -379,22 +400,7 @@ class method extends Feature {
         return_type = a3;
         expr = a4;
     }
-	
-	public AbstractSymbol getName() {return name;}
-	public Formals getFormals() {return formals; }
-	public AbstractSymbol getReturnType() { return return_type;}
-	public Expression getExpr() {return expr;};
-	
-	public void semant(Context context) {
-		if (Context.DEBUG) System.out.println("At method node: " + name);
-		context.enterMethod(this);
-		
-		
-		//TODO: semantically analyze the method, yo.
-		
-		context.leaveMethod();
-	}
-	
+
     public TreeNode copy() {
         return new method(lineNumber, copy_AbstractSymbol(name), (Formals)formals.copy(), copy_AbstractSymbol(return_type), (Expression)expr.copy());
     }
@@ -417,7 +423,15 @@ class method extends Feature {
         dump_AbstractSymbol(out, n + 2, return_type);
 		expr.dump_with_types(out, n + 2);
     }
-	
+
+    public void semant(Context context){
+        context.enterMethod(this);
+
+        expr.semant(context);
+
+        context.leaveMethod();
+    }
+
 }
 
 
@@ -465,11 +479,15 @@ class attr extends Feature {
         dump_AbstractSymbol(out, n + 2, type_decl);
 		init.dump_with_types(out, n + 2);
     }
-	
-	public AbstractSymbol getName() { return name; }
-	public AbstractSymbol getType() { return type_decl; }
-	public Expression getExpr() { return init; }
-	
+
+
+    public void semant(Context context){
+        AbstractSymbol initType = init.semant(context);
+        if(initType != null && !context.isSubclassOf(initType, type_decl)){
+            context.semantError(this).println("Attribute initialization: invalid type");
+        }
+    }
+
 }
 
 
@@ -490,8 +508,6 @@ class formalc extends Formal {
         name = a1;
         type_decl = a2;
     }
-
-	public AbstractSymbol getType() {return type_decl;}
     public TreeNode copy() {
         return new formalc(lineNumber, copy_AbstractSymbol(name), copy_AbstractSymbol(type_decl));
     }

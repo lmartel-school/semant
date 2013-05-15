@@ -3,7 +3,7 @@ ASSN = 3J
 CLASS= cs143
 CLASSDIR= /afs/ir/class/cs143
 
-SRC= ClassTable.java TreeConstants.java cool-tree.java good.cl bad.cl README
+SRC= Context.java VariableEnvironment.java ClassTable.java TreeConstants.java cool-tree.java good.cl bad.cl README
 CSRC = \
 	ASTConstants.java \
 	ASTLexer.java \
@@ -29,7 +29,7 @@ CSRC = \
 TSRC= mysemant mycoolc cool-tree.aps
 CGEN= 
 LIBS= lexer parser cgen
-CFIL= ${CSRC} ${CGEN} ClassTable.java TreeConstants.java cool-tree.java 
+CFIL= ${CSRC} ${CGEN} Context.java VariableEnvironment.java ClassTable.java TreeConstants.java cool-tree.java 
 HFIL= 
 LSRC= Makefile
 CLS= ${CFIL:.java=.class}
