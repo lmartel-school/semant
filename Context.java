@@ -132,6 +132,10 @@ class Context {
     return classes.leastUpperBound(one, two);
   }
 
+  public boolean errors(){
+    return classes.errors();
+  }
+
 
   /* Begin helper methods */
 
