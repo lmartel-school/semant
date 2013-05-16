@@ -479,7 +479,7 @@ class attr extends Feature {
 	
     public void semant(Context context){
         AbstractSymbol initType = init.semant(context);
-        AbstractSymbol evalTypeDecl = context.getVarType(name);
+        AbstractSymbol evalTypeDecl = context.varTypeWithSelf(type_decl);
 		if ( !context.classDefined(evalTypeDecl) ){
 			context.semantError(this).println("Class attribute " + name +
 											  " of undeclared type " +
