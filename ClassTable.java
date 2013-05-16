@@ -195,16 +195,12 @@ class ClassTable {
 		
 		for (Map.Entry<AbstractSymbol, class_c> kvPair :
 				 classes.entrySet()) {
-			verifyInheritanceGraph(kvPair); //if class heirarchy is malformed, we shouldn't semant the program
-			/* not implemented yet
-			   verifyDistinctFeatureNames(kvPair);
-			   //checks instance var names, method names, and method params.
-			   
-			   verifyCorrectMethodInheritance(kvPair);
-			*/   
+			verifyInheritanceGraph(kvPair); 
+			/*if class heirarchy is malformed, that error is found here
+				 and we exit in semant(program)*/ 
 		}
 	}
-	
+
 	public class_c getClass(AbstractSymbol sym) {
 		class_c rVal = classes.get(sym);
 		if (rVal == null) {
@@ -258,6 +254,10 @@ class ClassTable {
 		
 	}
 
+	public void verifyClass(class_c curr) {
+		getAllFeatures(curr, true);
+	}
+		
   //gets the features of the current class and all its parents
 	private Features getAllFeatures(class_c cur, boolean printUnique){
     Features curFeats = cur.getFeatures();
@@ -287,10 +287,10 @@ class ClassTable {
 	   Map<AbstractSymbol, method> methods, boolean printErr){
 		for (int i = 0; i < curFeats.getLength(); i++) {
 			if (curFeats.getNth(i) instanceof attr) {
-				if (attrs.contains(((attr)curFeats.getNth(i)).getName())) {
+				if (attrs.contains(((attr)curFeats.getNth(i)).name)) {
 					if (printErr) {
 						semantError(cur).println(
-						  	 "Attribute " + ((attr)curFeats.getNth(i)).getName()
+						  	 "Attribute " + ((attr)curFeats.getNth(i)).name
 							 + " in class " + cur + "illegally double defined.");
 					}
 				} else { //correctly defined new attribute
@@ -298,13 +298,13 @@ class ClassTable {
 				}
 			} else { // is method, check if overloaded signature matches
 				method curMethod = (method)curFeats.getNth(i);
-				if (methods.containsKey(curMethod.getName())) {
+				if (methods.containsKey(curMethod.name)) {
 					if (printErr) {
 						semantError(cur).println("Method " + curMethod + 
 						 " double defined in class " + cur);
 					}
 				} else { // new method name
-					methods.put(curMethod.getName(), curMethod);
+					methods.put(curMethod.name, curMethod);
 					allFeats.appendElement(curFeats.getNth(i));
 					//don't include duplicates of method names
 				}
@@ -318,10 +318,10 @@ class ClassTable {
 		while(true){
 			for (int i = 0; i < curFeats.getLength(); i++) {
 				if (curFeats.getNth(i) instanceof attr) {
-					if (attrs.contains(((attr)curFeats.getNth(i)).getName())) {
+					if (attrs.contains(((attr)curFeats.getNth(i)).name)) {
 						if (printErr) {
 							semantError(cur).println(
-						    "Attribute " + ((attr)curFeats.getNth(i)).getName()
+						    "Attribute " + ((attr)curFeats.getNth(i)).name
 						  + " in class " + cur + "illegally redefined in subclass.");
 						}
 					} else { //correctly defined new attribute
@@ -329,35 +329,35 @@ class ClassTable {
 					}
 				} else { // is method, check if overloaded signature matches
 					method curMethod = (method)curFeats.getNth(i);
-					if (methods.containsKey(curMethod.getName())) {
+					if (methods.containsKey(curMethod.name)) {
 						if (!hasIdenticalSignature(curMethod,
-												   methods.get(curMethod.getName())))
+												   methods.get(curMethod.name)))
 							{
 								if (printErr) {
 									semantError(cur).println("Non-identical	methodsignature in overloaded method call " + curMethod + " in class " + cur);
 								}
 							} //end if !hasIdenticalSignature
 					} else { // new method name
-						methods.put(curMethod.getName(), curMethod);
+						methods.put(curMethod.name, curMethod);
 						allFeats.appendElement(curFeats.getNth(i));
 						//don't include duplicates of method names
 					}
 				}
 			}
-			if(cur.getName() == TreeConstants.Object_) return;
+			if(cur.name == TreeConstants.Object_) return;
 			cur = getClass(cur.getParent());
 			curFeats = cur.getFeatures();
 		}
 	}
 	private boolean hasIdenticalSignature(method one, method two) {
-		Formals oneF = one.getFormals();
-		Formals twoF = two.getFormals();
-		if (one.getReturnType() != two.getReturnType() ||
+		Formals oneF = one.formals;
+		Formals twoF = two.formals;
+		if (one.return_type != two.return_type ||
 			oneF.getLength() != twoF.getLength()) return false;
 
 		for (int i = 0; i < oneF.getLength(); i++) {
-			if (  ((formalc)oneF.getNth(i)).getType() != 
-				  ((formalc)twoF.getNth(i)).getType() )
+			if (  ((formalc)oneF.getNth(i)).type_decl != 
+				  ((formalc)twoF.getNth(i)).type_decl )
 				return false;
 			
 		}

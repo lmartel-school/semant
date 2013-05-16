@@ -128,11 +128,12 @@ class Context {
     return returnType;
   }
 
-	public void verifyWellFormedClass(class_c cl) {
+	public void verifyWellFormedClass(class_c curr) {
 		/* Call getAllFeatures, which checks for inheritance errors and
 		   duplicated attr/method names. Values aren't needed here, so no
 		   return. */
-		classes.getAllFeatures(cl, true);
+		
+		classes.verifyClass(curr);
 	}
   /* Hooks into ClassTable */
 

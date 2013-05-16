@@ -159,7 +159,7 @@ abstract class Expression extends TreeNode {
 
     //ensures all Expression subclasses have a semant(context)
     //TODO: temporarily comment this out to quiet compiler errors if desired.
-    public abstract AbstractSymbol semant(Context context);
+    //public abstract AbstractSymbol semant(Context context);
 
 }
 
@@ -275,56 +275,48 @@ class programc extends Program {
 		to test the complete compiler.
     */
     public void semant() {
-	/* ClassTable constructor may do some semantic analysis */
-    Context context = new Context(new ClassTable(classes));
-	
-	/* some semantic analysis code may go here */
-    classes.semant(context);
-
-	if (context.errors()) {
-	    System.err.println("Compilation halted due to static semantic errors.");
-	    System.exit(1);
+		/* ClassTable constructor may do some semantic analysis */
+		Context context = new Context(new ClassTable(classes));
+		
+		
+		if (context.errors()) {
+			System.err.println("Compilation halted due to static semantic errors.");
+			System.exit(1);
+		}
+		
+		
+		/* We abort if errors  */
+		classes.semant(context);
 	}
 }
-
-
-/** Defines AST constructor 'class_c'.
+	
+	
+	/** Defines AST constructor 'class_c'.
 	<p>
 	See <a href="TreeNode.html">TreeNode</a> for full documentation. */
-class class_c extends Class_ {
-    protected AbstractSymbol name;
-    protected AbstractSymbol parent;
-    protected Features features;
-    protected AbstractSymbol filename;
-    /** Creates "class_c" AST node. 
-	 *
-	 * @param lineNumber the line in the source file from which this node came.
-	 * @param a0 initial value for name
-	 * @param a1 initial value for parent
-	 * @param a2 initial value for features
-	 * @param a3 initial value for filename
-	 */
-    public class_c(int lineNumber, AbstractSymbol a1, AbstractSymbol a2, Features a3, AbstractSymbol a4) {
-        super(lineNumber);
-        name = a1;
-        parent = a2;
-        features = a3;
-        filename = a4;
-    }
-	
-	public void semant(Context context) {
-		if (Context.DEBUG) System.out.println("At class node: " + name);
-		
-		context.verifyWellFormedClass(this);
-		context.enterClass(this);
-		for (int i = 0; i < features.getLength(); i++) {
-			((Feature)features.getNth(i)).semant(context);
+	class class_c extends Class_ {
+		protected AbstractSymbol name;
+		protected AbstractSymbol parent;
+		protected Features features;
+		protected AbstractSymbol filename;
+		/** Creates "class_c" AST node. 
+		 *
+		 * @param lineNumber the line in the source file from which this node came.
+		 * @param a0 initial value for name
+		 * @param a1 initial value for parent
+		 * @param a2 initial value for features
+		 * @param a3 initial value for filename
+		 */
+		public class_c(int lineNumber, AbstractSymbol a1, AbstractSymbol a2, Features a3, AbstractSymbol a4) {
+			super(lineNumber);
+			name = a1;
+			parent = a2;
+			features = a3;
+			filename = a4;
 		}
-		context.leaveClass();
 		
-	}
-    public TreeNode copy() {
-        return new class_c(lineNumber, copy_AbstractSymbol(name), copy_AbstractSymbol(parent), (Features)features.copy(), copy_AbstractSymbol(filename));
+		public TreeNode copy() {
+			return new class_c(lineNumber, copy_AbstractSymbol(name), copy_AbstractSymbol(parent), (Features)features.copy(), copy_AbstractSymbol(filename));
     }
     public void dump(PrintStream out, int n) {
         out.print(Utilities.pad(n) + "class_c\n");
@@ -356,6 +348,9 @@ class class_c extends Class_ {
 
     public void semant(Context context){
         context.enterClass(this);
+
+
+		context.verifyWellFormedClass(this);
 
         //Typecheck attributes (attributes visible within initializations)
         Features attrs = context.getAttrs(name);
@@ -426,8 +421,12 @@ class method extends Feature {
 
     public void semant(Context context){
         context.enterMethod(this);
-
-        expr.semant(context);
+		AbstractSymbol expr_type = expr.semant(context);
+			if (!context.isSubclassOf(expr_type, return_type)) {
+				context.semantError(this).println("Method " + name + 
+					   " returns incorrect value type. Expected " +
+						return_type + " but got " + expr_type);
+			}
 
         context.leaveMethod();
     }
@@ -442,6 +441,7 @@ class attr extends Feature {
     protected AbstractSymbol name;
     protected AbstractSymbol type_decl;
     protected Expression init;
+
     /** Creates "attr" AST node. 
 	 *
 	 * @param lineNumber the line in the source file from which this node came.
@@ -455,12 +455,6 @@ class attr extends Feature {
         type_decl = a2;
         init = a3;
     }
-	
-	public void semant(Context context) {
-		if (Context.DEBUG) System.out.println("At attr node: " + name);
-		
-		//TODO actually implements the semantic analysis.
-	}
     public TreeNode copy() {
         return new attr(lineNumber, copy_AbstractSymbol(name), copy_AbstractSymbol(type_decl), (Expression)init.copy());
     }
@@ -487,6 +481,7 @@ class attr extends Feature {
             context.semantError(this).println("Attribute initialization: invalid type");
         }
     }
+
 
 }
 
@@ -524,6 +519,10 @@ class formalc extends Formal {
         dump_AbstractSymbol(out, n + 2, name);
         dump_AbstractSymbol(out, n + 2, type_decl);
     }
+
+	public void semant() {
+		//nothing to do here
+	}
 
 }
 
@@ -1343,9 +1342,9 @@ class string_const extends Expression {
 
 }
 
-
-/** Defines AST constructor 'new_'.
-    <p>
+	
+	/** Defines AST constructor 'new_'.
+		<p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class new_ extends Expression {
     protected AbstractSymbol type_name;
@@ -1370,18 +1369,17 @@ class new_ extends Expression {
     public void dump_with_types(PrintStream out, int n) {
         dump_line(out, n);
         out.println(Utilities.pad(n) + "_new");
-	dump_AbstractSymbol(out, n + 2, type_name);
-	dump_type(out, n);
+		dump_AbstractSymbol(out, n + 2, type_name);
+		dump_type(out, n);
     }
-
 }
-
-
-/** Defines AST constructor 'isvoid'.
-    <p>
-    See <a href="TreeNode.html">TreeNode</a> for full documentation. */
-class isvoid extends Expression {
-    protected Expression e1;
+	
+	
+	/** Defines AST constructor 'isvoid'.
+		<p>
+		See <a href="TreeNode.html">TreeNode</a> for full documentation. */
+	class isvoid extends Expression {
+		protected Expression e1;
     /** Creates "isvoid" AST node. 
       *
       * @param lineNumber the line in the source file from which this node came.
@@ -1410,7 +1408,7 @@ class isvoid extends Expression {
 }
 
 
-/** Defines AST constructor 'no_expr'.
+/** Defines AST constructor 'no_expr'.l
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class no_expr extends Expression {
@@ -1424,6 +1422,7 @@ class no_expr extends Expression {
     public TreeNode copy() {
         return new no_expr(lineNumber);
     }
+
     public void dump(PrintStream out, int n) {
         out.print(Utilities.pad(n) + "no_expr\n");
     }
