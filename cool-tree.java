@@ -477,7 +477,8 @@ class attr extends Feature {
 
     public void semant(Context context){
         AbstractSymbol initType = init.semant(context);
-        if(initType != null && !context.isSubclassOf(initType, type_decl)){
+        AbstractSymbol evalTypeDecl = context.getVarType(name);
+        if(initType != null && !context.isSubclassOf(initType, evalTypeDecl))){
             context.semantError(this).println("Attribute initialization: invalid type");
         }
     }
