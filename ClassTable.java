@@ -203,9 +203,6 @@ class ClassTable {
 
 	public class_c getClass(AbstractSymbol sym) {
 		class_c rVal = classes.get(sym);
-		if (rVal == null) {
-			semantError().println("Asked for invalid class " + sym);
-		}
 		return rVal;
 	}
 	

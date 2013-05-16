@@ -84,6 +84,11 @@ class Context {
     return n.type_name;
   }
 
+	  public AbstractSymbol varTypeWithSelf(AbstractSymbol type) {
+		  if (type == TreeConstants.SELF_TYPE) return currentClass;
+		  return type;
+	  }
+
   public AbstractSymbol getVarType(AbstractSymbol name){
     if(name == TreeConstants.self) return currentClass;
     return (AbstractSymbol) variables.lookup(name);
@@ -93,6 +98,14 @@ class Context {
     if(name == TreeConstants.self) return true;
     return getVarType(name) != null;
   }
+
+  public AbstractSymbol currentClass() {
+	return currentClass;
+  }
+
+	public boolean classDefined(AbstractSymbol className) {
+		return classes.getClass(className) != null;
+	}
 
   public Formals getParameters(AbstractSymbol methodName){
     return getParameters(currentClass, methodName);
