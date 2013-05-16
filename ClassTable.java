@@ -210,7 +210,7 @@ class ClassTable {
 		class_c parentClass = classes.get(par);
 		
 		if (parentClass == null) {
-			semantError().println("class " + par + " does not exist.");
+			semantError().println("class " + par + " does not exist.1");
 		}
 		while (ch != par) {
 			if (ch == TreeConstants.Object_) {
@@ -218,7 +218,8 @@ class ClassTable {
 			} else {
 				class_c currClass = classes.get(ch);
 				if (currClass == null) {
-					semantError().println("class " + ch + " does not exist.");
+					semantError().println("class " + ch + " does not exist.2");
+          return false;
 				}
 				ch = currClass.getParent();
 			}
@@ -228,12 +229,12 @@ class ClassTable {
 
 	public class_c leastUpperBound(AbstractSymbol one, AbstractSymbol two)
 	{
-		Set<AbstractSymbol> found = new TreeSet<AbstractSymbol>();
+		Set<AbstractSymbol> found = new HashSet<AbstractSymbol>();
 		while (one != TreeConstants.Object_) {
 			found.add(one);
 			class_c currClass = classes.get(one);
 			if (currClass == null) {
-				semantError().println("class " + one + " does not exist.");
+				semantError().println("class " + one + " does not exist.3");
 			}
 			one = currClass.getParent();
 		}
@@ -242,7 +243,7 @@ class ClassTable {
 		while (!found.contains(two)) {
 			class_c currClass = classes.get(two);
 			if (currClass == null) {
-				semantError().println("class " + two + " does not exist.");
+				semantError().println("class " + two + " does not exist.4");
 			}
 			two = currClass.getParent();
 		}
@@ -264,17 +265,16 @@ class ClassTable {
           if(met.name == TreeConstants.main_meth && met.formals.getLength() == 0) return;
         } 
       }
+      semantError(curr).println("Class Main does not contain a main() method.");
     }
-
-    semantError(curr).println("Class Main does not contain a main() method.");
 	}
 		
   //gets the features of the current class and all its parents
 	private Features getAllFeatures(class_c cur, boolean printUnique){
-    Features curFeats = cur.getFeatures();
-    Features allFeats = new Features(curFeats.getLineNumber());
-	TreeSet<AbstractSymbol> attrs = new TreeSet<AbstractSymbol>();
-	TreeMap<AbstractSymbol, method> methods = new TreeMap<AbstractSymbol, method>();
+  Features curFeats = cur.getFeatures();
+  Features allFeats = new Features(curFeats.getLineNumber());
+	Set<AbstractSymbol> attrs = new HashSet<AbstractSymbol>();
+	Map<AbstractSymbol, method> methods = new HashMap<AbstractSymbol, method>();
 	//use to verify attrs are not redefined, and inherited methods have
 	//the same signatures
 
@@ -293,6 +293,7 @@ class ClassTable {
 	}
 	return allFeats;
   }
+
 	private void addImmediateFeatures(class_c cur, Features curFeats,
 									 Features allFeats, Set<AbstractSymbol> attrs,
 	   Map<AbstractSymbol, method> methods, boolean printErr){
@@ -316,6 +317,14 @@ class ClassTable {
 					}
 				} else { // new method name
 					methods.put(curMethod.name, curMethod);
+
+          //NOTE: This retuns methods that belong to other classes.
+          //I'm not sure exactly why.
+          //run ./mysemant test/good.cl,
+          //and see that this tries to add methods type_name, copy, and abort (from IO)
+          //to class C.
+          System.out.println("Class " + cur.name + " has method " + curMethod.name);
+          
 					allFeats.appendElement(curFeats.getNth(i));
 					//don't include duplicates of method names
 				}
@@ -356,6 +365,7 @@ class ClassTable {
 				}
 			}
 			if(cur.name == TreeConstants.Object_) return;
+
 			cur = getClass(cur.getParent());
 			curFeats = cur.getFeatures();
 		}
@@ -377,10 +387,10 @@ class ClassTable {
 
   //TODO: make this gather elements of all parent classes as well.
   //This should return all attrs/methods, including inherited ones.
-  private Features getElements(AbstractSymbol className, Class c){
+  private Features getElements(AbstractSymbol className){
     class_c currClass = classes.get(className);
     if (currClass == null) {
-      semantError().println("class " + className + " does not exist.");
+      semantError().println("class " + className + " does not exist.5");
     }
 
     Features allFeats = getAllFeatures(currClass, false);
@@ -388,13 +398,28 @@ class ClassTable {
 
     return allFeats;
   }
+
+  private Features keepOnly(Features everything, boolean attrs){
+    Features relevant = new Features(everything.getLineNumber());
+    for(Enumeration e = everything.getElements(); e.hasMoreElements();){
+      Feature feat = (Feature) e.nextElement();
+      if(attrs) {
+        if(feat instanceof attr) relevant.appendElement(feat); 
+      } else {
+        if(feat instanceof method) relevant.appendElement(feat); 
+      }
+    }
+    return relevant;
+  }
 	
 	public Features getAttrs(AbstractSymbol className){
-		return getElements(className, attr.class);
+    Features allElems = getElements(className);
+		return keepOnly(allElems, true);
 	}
 	
 	public Features getMethods(AbstractSymbol className) {
-		return getElements(className, method.class);
+    Features allElems = getElements(className);
+    return keepOnly(allElems, false);
 	}
   
   //Do classes with no parent have No_class as their parent field or Object?	
@@ -402,7 +427,7 @@ class ClassTable {
 										class_c> kvPair) {
 		AbstractSymbol currClassSym = kvPair.getKey();
 		class_c currClass = kvPair.getValue();
-		Set<AbstractSymbol> found = new TreeSet<AbstractSymbol>();
+		Set<AbstractSymbol> found = new HashSet<AbstractSymbol>();
 		while (currClassSym != TreeConstants.Object_) {
 			if (found.contains(currClassSym)) {
 				semantError(currClass).println(

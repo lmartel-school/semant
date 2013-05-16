@@ -136,7 +136,7 @@ class Context {
         break;
       }
     }
-    if(returnType == null) return null;
+    if(returnType == null || returnType == TreeConstants.No_type) return null;
     if(returnType == TreeConstants.SELF_TYPE) return className;
     return returnType;
   }

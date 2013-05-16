@@ -351,7 +351,6 @@ class programc extends Program {
     public void semant(Context context){
         context.enterClass(this);
 
-
 		context.verifyWellFormedClass(this);
 
         //Typecheck attributes (attributes visible within initializations)
@@ -365,6 +364,7 @@ class programc extends Program {
         Features methods = context.getMethods(name);
         for(Enumeration e = methods.getElements(); e.hasMoreElements();){
             method met = (method) e.nextElement();
+            System.out.println("class " + name + " has method " + met.name);
             met.semant(context);
         }
 
@@ -484,7 +484,7 @@ class attr extends Feature {
 			context.semantError(this).println("Class attribute " + name +
 											  " of undeclared type " +
 											  evalTypeDecl);
-		} else if(initType != null && !context.isSubclassOf(initType, evalTypeDecl)){
+		} else if(initType != TreeConstants.No_type && !context.isSubclassOf(initType, evalTypeDecl)){
 			context.semantError(this).println("Attribute initialization: invalid type");
 		}
 	}	
@@ -1012,9 +1012,7 @@ class let extends Expression {
 
 	public AbstractSymbol semant(Context context) {
 		AbstractSymbol initType = init.semant(context);
-		AbstractSymbol declaredType = (type_decl ==
-									   TreeConstants.SELF_TYPE ?
-									   context.currentClass() : type_decl);
+		AbstractSymbol declaredType = context.varTypeWithSelf(type_decl);
 		if (!context.isSubclassOf(initType, declaredType)) {
 			context.semantError(this).println("Initialization of variable in let statement does not match declared type.");
 		}
