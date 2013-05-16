@@ -9,6 +9,8 @@
 import java.util.Enumeration;
 import java.io.PrintStream;
 import java.util.Vector;
+import java.util.Set;
+import java.util.TreeSet;
 
 
 /** Defines simple phylum Program */
@@ -159,7 +161,7 @@ abstract class Expression extends TreeNode {
 
     //ensures all Expression subclasses have a semant(context)
     //TODO: temporarily comment this out to quiet compiler errors if desired.
-    //public abstract AbstractSymbol semant(Context context);
+    public abstract AbstractSymbol semant(Context context);
 
 }
 
@@ -441,7 +443,7 @@ class attr extends Feature {
     protected AbstractSymbol name;
     protected AbstractSymbol type_decl;
     protected Expression init;
-
+	
     /** Creates "attr" AST node. 
 	 *
 	 * @param lineNumber the line in the source file from which this node came.
@@ -473,17 +475,19 @@ class attr extends Feature {
         dump_AbstractSymbol(out, n + 2, type_decl);
 		init.dump_with_types(out, n + 2);
     }
-
-
+	
+	
     public void semant(Context context){
         AbstractSymbol initType = init.semant(context);
         AbstractSymbol evalTypeDecl = context.getVarType(name);
-        if(initType != null && !context.isSubclassOf(initType, evalTypeDecl))){
-            context.semantError(this).println("Attribute initialization: invalid type");
-        }
-    }
-
-
+		if ( !context.classDefined(evalTypeDecl) ){
+			context.semantError(this).println("Class attribute " + name +
+											  " of undeclared type " +
+											  evalTypeDecl);
+		} else if(initType != null && !context.isSubclassOf(initType, evalTypeDecl)){
+			context.semantError(this).println("Attribute initialization: invalid type");
+		}
+	}	
 }
 
 
@@ -521,8 +525,8 @@ class formalc extends Formal {
         dump_AbstractSymbol(out, n + 2, type_decl);
     }
 
-	public void semant() {
-		//nothing to do here
+	public AbstractSymbol semant(Context context){
+		return type_decl;
 	}
 
 }
@@ -548,6 +552,14 @@ class branch extends Case {
         type_decl = a2;
         expr = a3;
     }
+
+	public AbstractSymbol semant(Context context) {
+		context.enterBranch(this);
+
+		AbstractSymbol type = expr.semant(context);
+		context.leaveBranch();
+		return type;
+	}
     public TreeNode copy() {
         return new branch(lineNumber, copy_AbstractSymbol(name), copy_AbstractSymbol(type_decl), (Expression)expr.copy());
     }
@@ -587,6 +599,21 @@ class assign extends Expression {
         name = a1;
         expr = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		AbstractSymbol varType = context.getVarType(name);
+		AbstractSymbol exprType = expr.semant(context);
+		if (varType != null && exprType != null &&
+			context.isSubclassOf(exprType, varType)) {
+			this.set_type(exprType);
+			return exprType;
+		} else {
+			context.semantError(this).println("Illegal assignment of expression type" 
+                         + exprType + " to var of type " + varType);
+			set_type(TreeConstants.Object_);
+			return TreeConstants.Object_;
+		}
+	}
     public TreeNode copy() {
         return new assign(lineNumber, copy_AbstractSymbol(name), (Expression)expr.copy());
     }
@@ -634,6 +661,32 @@ class static_dispatch extends Expression {
     public TreeNode copy() {
         return new static_dispatch(lineNumber, (Expression)expr.copy(), copy_AbstractSymbol(type_name), copy_AbstractSymbol(name), (Expressions)actual.copy());
     }
+
+	public AbstractSymbol semant(Context context) {
+		AbstractSymbol callingExpr = expr.semant(context);
+		if (!context.isSubclassOf(callingExpr, type_name)) {
+			context.semantError(this).println("Trying to statically dispatch from non-inherited class " + type_name);
+			set_type(TreeConstants.Object_);
+			return TreeConstants.Object_;
+		} else { //calling class is valid
+			Formals argList = context.getParameters(type_name, name);
+			if (argList.getLength() != actual.getLength()) {
+				context.semantError(this).println("Static dispatch argument list length does not math method's formal list length.");
+			} else { //method and formal lengths match
+				for (int i = 0; i < argList.getLength(); i++) {
+					AbstractSymbol argType =
+		((Expression)actual.getNth(i)).semant(context);
+					if (!context.isSubclassOf(argType,((formalc)argList.getNth(i)).type_decl)){
+						context.semantError(this).println("Argument type does not match the type expected by static dispatch.");
+					} //if
+				} //for each arg
+			}
+			set_type(context.varTypeWithSelf(context.getReturnType(type_name, name)));
+			return context.varTypeWithSelf(context.getReturnType(type_name, name));
+		}
+	}
+
+
     public void dump(PrintStream out, int n) {
         out.print(Utilities.pad(n) + "static_dispatch\n");
         expr.dump(out, n+2);
@@ -680,6 +733,25 @@ class dispatch extends Expression {
         name = a2;
         actual = a3;
     }
+
+	public AbstractSymbol semant(Context context) {
+		AbstractSymbol callingExpr = context.varTypeWithSelf(expr.semant(context));
+		Formals argList = context.getParameters(name);
+		if (argList.getLength() != actual.getLength()) {
+			context.semantError(this).println("Dispatch argument list length does not math method's formal list length.");
+		} else { //method and formal lengths match
+			for (int i = 0; i < argList.getLength(); i++) {
+				AbstractSymbol argType =
+					((Expression)actual.getNth(i)).semant(context);
+				if (!context.isSubclassOf(argType, ((formalc)argList.getNth(i)).type_decl)){
+					context.semantError(this).println("Argument type does not match the type expected by static dispatch.");
+				} //if
+			} //for each arg
+		}
+		set_type(context.varTypeWithSelf(context.getReturnType(name)));
+		return context.varTypeWithSelf(context.getReturnType(name));
+	}
+
     public TreeNode copy() {
         return new dispatch(lineNumber, (Expression)expr.copy(), copy_AbstractSymbol(name), (Expressions)actual.copy());
     }
@@ -727,6 +799,17 @@ class cond extends Expression {
         then_exp = a2;
         else_exp = a3;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (pred.semant(context) != TreeConstants.Bool) {
+			context.semantError(this).println(
+			 "Non-boolean expression in if-statement predicate.");
+		}
+		class_c lub = context.leastUpperBound(
+				then_exp.semant(context), else_exp.semant(context));
+		set_type(lub.getName());
+		return lub.getName();
+	}
     public TreeNode copy() {
         return new cond(lineNumber, (Expression)pred.copy(), (Expression)then_exp.copy(), (Expression)else_exp.copy());
     }
@@ -767,6 +850,17 @@ class loop extends Expression {
         pred = a1;
         body = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (pred.semant(context) != TreeConstants.Bool) {
+			context.semantError(this).println(
+			 "Non-boolean expression in loop condition.");
+		}
+		body.semant(context);
+		set_type(TreeConstants.Object_);
+		return TreeConstants.Object_;
+	}
+
     public TreeNode copy() {
         return new loop(lineNumber, (Expression)pred.copy(), (Expression)body.copy());
     }
@@ -805,6 +899,25 @@ class typcase extends Expression {
         expr = a1;
         cases = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		expr.semant(context);
+		Set<AbstractSymbol> used = new TreeSet<AbstractSymbol>();
+		//case vars must have distinct types
+		AbstractSymbol lub = ((branch)cases.getNth(0)).semant(context);
+		used.add(lub);
+		for (int i = 0; i < cases.getLength(); i++) {
+			AbstractSymbol curr = ((branch)cases.getNth(i)).semant(context);
+			if (used.contains(curr)) {
+				context.semantError(this).println("Case statement has duplicated var types in distinct branches.");
+			}
+			used.add(curr);
+			lub = context.leastUpperBound(lub, curr).name;
+		}
+		set_type(lub);
+		return lub;
+		
+	}
     public TreeNode copy() {
         return new typcase(lineNumber, (Expression)expr.copy(), (Cases)cases.copy());
     }
@@ -842,6 +955,16 @@ class block extends Expression {
         super(lineNumber);
         body = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		AbstractSymbol sym = ((Expression)body.getNth(0)).semant(context);
+		for (int i = 0; i < body.getLength(); i++) {
+			sym = ((Expression)body.getNth(i)).semant(context);
+			//semants every expr, captures the last type
+		}
+		set_type(sym);
+		return sym;
+	}
     public TreeNode copy() {
         return new block(lineNumber, (Expressions)body.copy());
     }
@@ -886,6 +1009,25 @@ class let extends Expression {
         init = a3;
         body = a4;
     }
+
+	public AbstractSymbol semant(Context context) {
+		AbstractSymbol initType = init.semant(context);
+		AbstractSymbol declaredType = (type_decl ==
+									   TreeConstants.SELF_TYPE ?
+									   context.currentClass() : type_decl);
+		if (!context.isSubclassOf(initType, declaredType)) {
+			context.semantError(this).println("Initialization of variable in let statement does not match declared type.");
+		}
+		context.enterLet(this);
+		AbstractSymbol bodyType = body.semant(context);
+
+		context.leaveLet();
+
+		set_type(bodyType);
+		return(bodyType);
+		
+	}
+		
     public TreeNode copy() {
         return new let(lineNumber, copy_AbstractSymbol(identifier), copy_AbstractSymbol(type_decl), (Expression)init.copy(), (Expression)body.copy());
     }
@@ -928,6 +1070,15 @@ class plus extends Expression {
         e1 = a1;
         e2 = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Int || e2.semant(context)
+			!= TreeConstants.Int) {
+			context.semantError(this).println("Attempted to add non-int expressions");
+		}
+		set_type(TreeConstants.Int);
+		return TreeConstants.Int;
+	}
     public TreeNode copy() {
         return new plus(lineNumber, (Expression)e1.copy(), (Expression)e2.copy());
     }
@@ -966,6 +1117,16 @@ class sub extends Expression {
         e1 = a1;
         e2 = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Int || e2.semant(context)
+			!= TreeConstants.Int) {
+			context.semantError(this).println("Attempted to subtract non-int expressions");
+		}
+		set_type(TreeConstants.Int);
+		return TreeConstants.Int;
+	}
+
     public TreeNode copy() {
         return new sub(lineNumber, (Expression)e1.copy(), (Expression)e2.copy());
     }
@@ -1004,6 +1165,16 @@ class mul extends Expression {
         e1 = a1;
         e2 = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Int || e2.semant(context)
+			!= TreeConstants.Int) {
+			context.semantError(this).println("Attempted to multiply non-int expressions");
+		}
+		set_type(TreeConstants.Int);
+		return TreeConstants.Int;
+	}
+
     public TreeNode copy() {
         return new mul(lineNumber, (Expression)e1.copy(), (Expression)e2.copy());
     }
@@ -1042,6 +1213,16 @@ class divide extends Expression {
         e1 = a1;
         e2 = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Int || e2.semant(context)
+			!= TreeConstants.Int) {
+			context.semantError(this).println("Attempted to divide non-int expressions");
+		}
+		set_type(TreeConstants.Int);
+		return TreeConstants.Int;
+	}
+
     public TreeNode copy() {
         return new divide(lineNumber, (Expression)e1.copy(), (Expression)e2.copy());
     }
@@ -1077,6 +1258,14 @@ class neg extends Expression {
         super(lineNumber);
         e1 = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Int) {
+			context.semantError(this).println("Attempted to negate non-int expression");
+		}
+		set_type(TreeConstants.Int);
+		return TreeConstants.Int;
+	}
     public TreeNode copy() {
         return new neg(lineNumber, (Expression)e1.copy());
     }
@@ -1113,6 +1302,16 @@ class lt extends Expression {
         e1 = a1;
         e2 = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Int || e2.semant(context)
+			!= TreeConstants.Int) {
+			context.semantError(this).println("Attempted to compare non-int expressions");
+		}
+		set_type(TreeConstants.Bool);
+		return TreeConstants.Bool;
+	}
+
     public TreeNode copy() {
         return new lt(lineNumber, (Expression)e1.copy(), (Expression)e2.copy());
     }
@@ -1151,6 +1350,17 @@ class eq extends Expression {
         e1 = a1;
         e2 = a2;
     }
+
+public AbstractSymbol semant(Context context) {
+	AbstractSymbol type1 = e1.semant(context);
+	AbstractSymbol type2 = e2.semant(context);
+	if ((type1 == TreeConstants.Int || type1 == TreeConstants.Str ||
+		 type1 == TreeConstants.Bool) && (type1 != type2)) {
+			context.semantError(this).println("Attempted to compare two expressions of non-equal primitive types");
+		}
+		set_type(TreeConstants.Bool);
+		return TreeConstants.Bool;
+	}
     public TreeNode copy() {
         return new eq(lineNumber, (Expression)e1.copy(), (Expression)e2.copy());
     }
@@ -1189,6 +1399,16 @@ class leq extends Expression {
         e1 = a1;
         e2 = a2;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Int || e2.semant(context)
+			!= TreeConstants.Int) {
+			context.semantError(this).println("Attempted to compare non-int expressions");
+		}
+		set_type(TreeConstants.Bool);
+		return TreeConstants.Bool;
+	}
+
     public TreeNode copy() {
         return new leq(lineNumber, (Expression)e1.copy(), (Expression)e2.copy());
     }
@@ -1224,6 +1444,15 @@ class comp extends Expression {
         super(lineNumber);
         e1 = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		if (e1.semant(context) != TreeConstants.Bool) {
+			context.semantError(this).println("Attempted to NOT non-boolean expression");
+		}
+		set_type(TreeConstants.Bool);
+		return TreeConstants.Bool;
+	}
+
     public TreeNode copy() {
         return new comp(lineNumber, (Expression)e1.copy());
     }
@@ -1257,6 +1486,12 @@ class int_const extends Expression {
         super(lineNumber);
         token = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		set_type(TreeConstants.Int);
+		return TreeConstants.Int;
+	}
+
     public TreeNode copy() {
         return new int_const(lineNumber, copy_AbstractSymbol(token));
     }
@@ -1290,6 +1525,12 @@ class bool_const extends Expression {
         super(lineNumber);
         val = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		set_type(TreeConstants.Bool);
+		return TreeConstants.Bool;
+	}
+
     public TreeNode copy() {
         return new bool_const(lineNumber, copy_Boolean(val));
     }
@@ -1323,6 +1564,12 @@ class string_const extends Expression {
         super(lineNumber);
         token = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		set_type(TreeConstants.Str);
+		return TreeConstants.Str;
+	}
+
     public TreeNode copy() {
         return new string_const(lineNumber, copy_AbstractSymbol(token));
     }
@@ -1358,6 +1605,12 @@ class new_ extends Expression {
         super(lineNumber);
         type_name = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		set_type(context.newKeywordType(this));
+		return context.newKeywordType(this);
+	}
+
     public TreeNode copy() {
         return new new_(lineNumber, copy_AbstractSymbol(type_name));
     }
@@ -1390,6 +1643,13 @@ class new_ extends Expression {
         super(lineNumber);
         e1 = a1;
     }
+
+	public AbstractSymbol semant(Context context) {
+		e1.semant(context);
+		set_type(TreeConstants.Bool);
+		return TreeConstants.Bool;
+	}
+
     public TreeNode copy() {
         return new isvoid(lineNumber, (Expression)e1.copy());
     }
@@ -1420,6 +1680,10 @@ class no_expr extends Expression {
     public no_expr(int lineNumber) {
         super(lineNumber);
     }
+	public AbstractSymbol semant(Context context) {
+		set_type(TreeConstants.No_type);
+		return TreeConstants.No_type;
+	}
     public TreeNode copy() {
         return new no_expr(lineNumber);
     }
@@ -1452,6 +1716,11 @@ class object extends Expression {
         super(lineNumber);
         name = a1;
     }
+	public AbstractSymbol semant(Context context) {
+		AbstractSymbol sym = context.getVarType(name);
+		set_type(sym);
+		return sym;
+	}
     public TreeNode copy() {
         return new object(lineNumber, copy_AbstractSymbol(name));
     }
