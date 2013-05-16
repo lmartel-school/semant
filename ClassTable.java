@@ -255,7 +255,21 @@ class ClassTable {
 	}
 
 	public void verifyClass(class_c curr) {
-		getAllFeatures(curr, true);
+		Features allFeats = getAllFeatures(curr, true);
+    
+    //special case: Main must have a main() [zero args]
+    //and it must be defined in Main, not just inherited
+    if(curr.getName() == TreeConstants.Main){
+      for (Enumeration e = curr.getFeatures().getElements(); e.hasMoreElements();){
+        Feature next = (Feature) e.nextElement();
+        if(next instanceof method){
+          method met = (method) next;
+          if(met.name == TreeConstants.main_meth && met.formals.getLength() == 0) return;
+        } 
+      }
+    }
+
+    semantError(curr).println("Class Main does not contain a main() method.");
 	}
 		
   //gets the features of the current class and all its parents
@@ -375,14 +389,6 @@ class ClassTable {
     Features allFeats = getAllFeatures(currClass, false);
 	//false to avoid double printing error messages
 
-	/* We don't need this right? Am I missing something? -T
-	  Features elems = new Features(allFeats.getLineNumber());
-    for (int i = 0; i < allFeats.getLength(); i++) {
-      Feature feat = (Feature) allFeats.getNth(i);
-      if (feat instanceof attr) {
-        elems.appendElement(feat);
-      }
-	  } */
     return allFeats;
   }
 	
