@@ -14,6 +14,10 @@ class A {
   aTest() : B {
     (new B).getSelf()
   };
+
+  letTest() : B {
+    let x : B <- (new SELF_TYPE) in x
+  };
 };
 
 class B inherits A {
@@ -23,6 +27,10 @@ class B inherits A {
 
   bTest2() : B {
     s2
+  };
+
+  letTest() : B {
+    let x : B <- (new SELF_TYPE) in x
   };
 
 };
@@ -42,6 +50,10 @@ class C {
 
   testB2() : B {
     (new B).getSelf()
+  };
+
+  testLet() : A {
+    let x : SELF_TYPE <- (new SELF_TYPE) in x
   };
 };
 

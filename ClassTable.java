@@ -196,8 +196,8 @@ class ClassTable {
     boolean mainExists = false;
 		for (Map.Entry<AbstractSymbol, class_c> kvPair :
 				 classes.entrySet()) {
+      if(!verifyInheritanceGraph(kvPair)) continue; 
       if(verifyClass(kvPair.getValue(), true)) mainExists = true;
-			verifyInheritanceGraph(kvPair); 
 			/*if class heirarchy is malformed, that error is found here
 				 and we exit in semant(program)*/ 
 		}
@@ -217,7 +217,8 @@ class ClassTable {
 		class_c parentClass = classes.get(par);
 		
 		if (parentClass == null) {
-			semantError().println("class " + par + " does not exist.1");
+			//semantError().println("class " + par + " does not exist.1");
+      return false;
 		}
 		while (ch != par) {
 			if (ch == TreeConstants.Object_) {
@@ -225,7 +226,7 @@ class ClassTable {
 			} else {
 				class_c currClass = classes.get(ch);
 				if (currClass == null) {
-					semantError().println("class " + ch + " does not exist.2");
+					//semantError().println("class " + ch + " does not exist.2");
           return false;
 				}
 				ch = currClass.getParent();
@@ -442,27 +443,40 @@ class ClassTable {
 	}
   
   //Do classes with no parent have No_class as their parent field or Object?	
-	private void verifyInheritanceGraph(Map.Entry<AbstractSymbol,
+	private boolean verifyInheritanceGraph(Map.Entry<AbstractSymbol,
 										class_c> kvPair) {
 		AbstractSymbol currClassSym = kvPair.getKey();
 		class_c currClass = kvPair.getValue();
+
+    AbstractSymbol checkParent = currClass.getParent();
+    if(checkParent == TreeConstants.Int 
+      || checkParent == TreeConstants.Bool 
+      || checkParent == TreeConstants.Str)
+    {
+      semantError(currClass).println("Class " + currClassSym + " cannot inherit class " + checkParent + ".");
+      return false;
+    }
+
 		Set<AbstractSymbol> found = new HashSet<AbstractSymbol>();
 		while (currClassSym != TreeConstants.Object_) {
 			if (found.contains(currClassSym)) {
 				semantError(currClass).println(
 					"Inheritance cycle detected at class " + currClassSym);
+        return false;
 			}
 			found.add(currClassSym);
 			
 			AbstractSymbol parentClassSym  = currClass.getParent();
 			class_c parentClass = classes.get(parentClassSym);
 			if (parentClass == null) {
-				semantError(currClass).println("subclass " + currClass
-					 + "attempting to inherit from undefined super-class " + parentClass);
+				semantError(currClass).println("Class " + currClassSym
+					 + " inherits from an undefined class " + parentClassSym + ".");
+        return false;
 			}
 			currClassSym = parentClassSym;
 			currClass = parentClass;
 		} //while
+    return true;
 	} // verifyInheritanceGraph
 	
     /** Prints line number and file name of the given class.

@@ -22,7 +22,7 @@ class Context {
 	static final boolean DEBUG = true;
 
   public Context(ClassTable classes){
-    variables = new VariableEnvironment();
+    variables = new VariableEnvironment(this);
     this.classes = classes;
     currentClass = null;
   }
@@ -34,8 +34,7 @@ class Context {
     for(int i = 0; i < attrs.getLength(); i++){
       attr nextAttr = (attr) attrs.getNth(i);
       AbstractSymbol type = nextAttr.type_decl;
-      //if(type == TreeConstants.SELF_TYPE) type = cur.getName();
-      variables.addId(nextAttr.name, type);
+      variables.addId(nextAttr.name, type, nextAttr);
     }
   }
 
@@ -51,7 +50,7 @@ class Context {
     assert params != null : "tried to enter method that does not exist in this class";
     for(int i = 0; i < params.getLength(); i++){
       formalc f = (formalc) params.getNth(i);
-      variables.addId(f.name, f.type_decl);
+      variables.addId(f.name, f.type_decl, f);
     }
   }
 
@@ -61,7 +60,7 @@ class Context {
 
   public void enterBranch(branch b){
     pushScope();
-    variables.addId(b.name, b.type_decl);
+    variables.addId(b.name, b.type_decl, b);
   }
 
   public void leaveBranch(){
@@ -71,21 +70,14 @@ class Context {
   public void enterLet(let l){
     pushScope();
     AbstractSymbol type = l.type_decl;
-    if(type == TreeConstants.SELF_TYPE) type = currentClass;
-    variables.addId(l.identifier, type);
+    variables.addId(l.identifier, type, l);
   }
 
   public void leaveLet(){
     popScope();
   }
 
-  // public AbstractSymbol newKeywordType(new_ n){
-  //   if(n.type_name == TreeConstants.SELF_TYPE) return currentClass;
-  //   return n.type_name;
-  // }
-
   public AbstractSymbol validateType(AbstractSymbol type) {
-	  //if (type == TreeConstants.SELF_TYPE) return currentClass;
 	  return type;
   }
 
@@ -104,7 +96,7 @@ class Context {
   }
 
 	public boolean classDefined(AbstractSymbol className) {
-		return classes.getClass(className) != null;
+		return className == TreeConstants.SELF_TYPE || classes.getClass(className) != null;
 	}
 
   public Formals getParameters(AbstractSymbol methodName){
@@ -114,14 +106,8 @@ class Context {
   public Formals getParameters(AbstractSymbol className, AbstractSymbol methodName){
     assert className != null;
     Features classMethods = classes.getMethods(className);
-
-    //System.out.println("getParameters: class " + className + ", looking for method " + methodName);
-    
     for(int i = 0; i < classMethods.getLength(); i++){
       method met = (method) classMethods.getNth(i);
-
-      //System.out.println("getParameters: method found, " + met.name);
-
       if(met.name == methodName) return met.formals;
     }
     return new Formals(classMethods.getLineNumber());
@@ -182,7 +168,6 @@ class Context {
   }
 
   public PrintStream semantError(TreeNode t){
-    assert currentClass != null : "extra-class semant errors should be handled in the class table";
     return classes.semantError(classes.getClass(currentClass).getFilename(), t);
   }
 

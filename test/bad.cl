@@ -1,3 +1,7 @@
+class Foo {
+	self : Int;
+};
+
 class C {
 	a : Int;
 	b : Bool;

@@ -289,6 +289,11 @@ class programc extends Program {
 		
 		/* We abort if errors  */
 		classes.semant(context);
+
+        if (context.errors()) {
+            System.err.println("Compilation halted due to static semantic errors.");
+            System.exit(1);
+        }
 	}
 }
 	
@@ -364,7 +369,6 @@ class programc extends Program {
         Features methods = context.getMethods(name);
         for(Enumeration e = methods.getElements(); e.hasMoreElements();){
             method met = (method) e.nextElement();
-            //System.out.println("class_c semant: class " + name + " has method " + met.name);
             met.semant(context);
         }
 
@@ -423,14 +427,20 @@ class method extends Feature {
 
     public void semant(Context context){
         context.enterMethod(this);
+
+        boolean alreadyBroken = false;
+        if(!context.classDefined(return_type)){
+            context.semantError(this).println("Undefined return type " + return_type + " in method " + name + ".");
+            alreadyBroken = true;
+        }
+
 		AbstractSymbol expr_type = expr.semant(context);
 
         //we skip methods whose expression returns No_type, since this is only possible
         //in the malformed "starter methods", never from real code (or you'd get a parse error)
-		if (expr_type != TreeConstants.No_type && !context.isSubclassOf(expr_type, return_type)) {
-			context.semantError(this).println("Method " + name + 
-				   " returns incorrect value type. Expected " +
-					return_type + " but got " + expr_type);
+		if (!alreadyBroken && expr_type != TreeConstants.No_type && !context.isSubclassOf(expr_type, return_type)) {
+			context.semantError(this).println("Inferred return type " + expr_type + " of method "
+                + name + " does not conform to declared return type " + return_type + ".");
 		}
 
         context.leaveMethod();
@@ -668,19 +678,21 @@ class static_dispatch extends Expression {
 		AbstractSymbol callingExprType = expr.semant(context);
 
 		if (!context.isSubclassOf(callingExprType, type_name)) {
-			context.semantError(this).println("Trying to statically dispatch from non-inherited class " + type_name);
+			context.semantError(this).println("Static dispatch to undefined class " + type_name + ".");
 			set_type(TreeConstants.Object_);
 			return TreeConstants.Object_;
 		} else { //calling class is valid
 			Formals argList = context.getParameters(type_name, name);
 			if (argList.getLength() != actual.getLength()) {
-				context.semantError(this).println("Static dispatch argument list length does not math method's formal list length.");
+				context.semantError(this).println("Method " + name + " called with wrong number of arguments.");
 			} else { //method and formal lengths match
 				for (int i = 0; i < argList.getLength(); i++) {
 					AbstractSymbol argType =
 		((Expression)actual.getNth(i)).semant(context);
-					if (!context.isSubclassOf(argType,((formalc)argList.getNth(i)).type_decl)){
-						context.semantError(this).println("Argument type does not match the type expected by static dispatch.");
+                    formalc formal = (formalc)argList.getNth(i);
+					if (!context.isSubclassOf(argType, formal.type_decl)){
+                        context.semantError(this).println("In call of method " + name + ", type " + argType 
+                        + " of parameter " + formal.name + " does not conform to declared type " + formal.type_decl + ".");
 					} //if
 				} //for each arg
 			}
@@ -745,16 +757,28 @@ class dispatch extends Expression {
 		AbstractSymbol callingExprType = context.validateType(expr.semant(context));
         AbstractSymbol evaluatedExprType = (callingExprType == TreeConstants.SELF_TYPE ? context.currentClass() : callingExprType);
 
+        if(!context.classDefined(evaluatedExprType)){
+            context.semantError(this).println("Dispatch on undefined class " + evaluatedExprType + ".");
+            set_type(TreeConstants.Object_);
+            return TreeConstants.Object_;
+        }
+        if(context.getReturnType(evaluatedExprType, name) == null){
+            context.semantError(this).println("Dispatch to undefined method " + name + ".");
+            set_type(TreeConstants.Object_);
+            return TreeConstants.Object_;
+        }
+
 		Formals argList = context.getParameters(evaluatedExprType, name);
 		if (argList.getLength() != actual.getLength()) {
-			context.semantError(this).println("Dispatch argument list length does not match method's formal list length. Method requires " 
-                + argList.getLength() + " parameters, received " + actual.getLength() + " args.");
+			context.semantError(this).println("Method " + name + " called with wrong number of arguments.");
 		} else { //method and formal lengths match
 			for (int i = 0; i < argList.getLength(); i++) {
 				AbstractSymbol argType =
 					((Expression)actual.getNth(i)).semant(context);
-				if (!context.isSubclassOf(argType, ((formalc)argList.getNth(i)).type_decl)){
-					context.semantError(this).println("Argument type does not match the type expected by static dispatch.");
+                    formalc formal = (formalc)argList.getNth(i);
+				if (!context.isSubclassOf(argType, formal.type_decl)){
+					context.semantError(this).println("In call of method " + name + ", type " + argType 
+                        + " of parameter " + formal.name + " does not conform to declared type " + formal.type_decl + ".");
 				} //if
 			} //for each arg
 		}
@@ -983,7 +1007,7 @@ class block extends Expression {
 
 	public AbstractSymbol semant(Context context) {
 		AbstractSymbol sym = ((Expression)body.getNth(0)).semant(context);
-		for (int i = 0; i < body.getLength(); i++) {
+		for (int i = 1; i < body.getLength(); i++) {
 			sym = ((Expression)body.getNth(i)).semant(context);
 			//semants every expr, captures the last type
 		}
@@ -1038,8 +1062,15 @@ class let extends Expression {
 	public AbstractSymbol semant(Context context) {
 		AbstractSymbol initType = init.semant(context);
 		AbstractSymbol declaredType = context.validateType(type_decl);
-		if (initType != TreeConstants.No_type && !context.isSubclassOf(initType, declaredType)) {
-			context.semantError(this).println("Initialization of variable in let statement does not match declared type.");
+		if (initType != TreeConstants.No_type){
+            if(!context.classDefined(type_decl)){
+                context.semantError(this).println("Class " + type_decl + " of let-bound identifier "
+                    + identifier + " is undefined.");
+            } else if(!context.isSubclassOf(initType, declaredType)) {
+    			context.semantError(this).println("Inferred type " + initType 
+                    + " of initialization of " + identifier 
+                    + " does not conform to identifier's declared type " + type_decl + ".");
+            }
 		}
 		context.enterLet(this);
 		AbstractSymbol bodyType = body.semant(context);
@@ -1630,8 +1661,11 @@ class new_ extends Expression {
     }
 
 	public AbstractSymbol semant(Context context) {
-		//set_type(context.newKeywordType(this));
-		//return context.newKeywordType(this);
+		
+        if(!context.classDefined(type_name)){
+            context.semantError(this).println("'new' used with undefined class " + type_name + ".");
+        }
+
         set_type(type_name);
 	   return type_name;
     }

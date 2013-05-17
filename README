@@ -171,3 +171,48 @@ Instructions
 
 Write-up for PA4
 ----------------
+Our approach to this assignment centered around our use of two custom data structures, the Context and the ClassTable. We designed the Context as a wrapper around and interface to all the necessary environment information, namely:
+  - The variable environment
+  - The method signatures
+  - The current class
+By wrapping all of these in a single interface, we simplified the semant code considerably:
+  - We only have to pass one object around our semant() methods
+  - We don't have to worry client-side about whether to invoke getVarType (for example) on the class table, the method table, or the symbol table--we only interface with the Context.
+  - Similarly, it simplified the interface with the scoping mechanisms: the client could simply call (eg) Context::enterClass(class_c klass) and the Context would take care of whatever needed to be done, eg adding attributes to the symbol table; the client could then just call leaveClass when they were finished. 
+Inside the Context, we have the following components:
+  - VariableEnvironment
+    - This is an extended custom version of the SymbolTable (which is the provided stack-of-hashmaps implementation of a variable scoping data structure). Our custom version allowed us to add additional functionality which we used early on in debugging, and it allowed us to provide the SymbolTable with an indirect hook into the ClassTable (where the error-printing methods are defined).
+  - ClassTable
+    - This provided:
+      - The class hierarchy/inheritance graph
+      - Error-checking (of inheritance cycles, illegal inheritance of primitives or invalid classes, of double-defined classes, valid Main class with main() method, etc)
+      - Enforcing correct method overloading (identical signatures)
+      - The ability to check whether classes (in dispatches, etc) are valid and defined
+      - The mechanisms to look up methods or attributes of a given class (or its parents)
+      - A simple hook to check whether one class is a subclass of another
+      - A simple hook to check the least upper-bound of two classes
+      - (Note: since the Context has access to every environment, we were able to deal with SELF_TYPE for isSubclass and leastUpperBound at the Context level, allowing the client to happily pass SELF_TYPE into these calls and get the correct result.)
+      - The printstream used for error reporting
+  - The current class ("where we are" at any given time in the parsing)
+The Context provides a number of simplified interfaces between the semant() client methods and the various Tables, such as "getReturnType" and "getParameters" methods (see above for more examples)
+
+Once we built our abstractions, we simply added a semant(Context) method to each AST node. Our core semant code recursively traverses these semant methods, relying on the Context for all necessary information.
+
+
+
+Our semantic analyzer does two passes over the AST.
+The first pass handles:
+- Creating the ClassTable
+  - Adds the "starter classes" (Object, String etc) as well as every class in the file to a Map from <Class_Name> to <Class_Object>, and performs the following checks on each:
+    - Verifies no class is doubly defined
+    - Verifies no inheritance cycles by following each class up the inheritance tree until it reaches object (or hits an error: invalid class, repeated cycle of parent classes, or a "primitive" class)
+    - Verifies each class:
+      - Checks for doubly-defined attributes and methods.
+      - Enforces inheritance rules (inherited attributes cannot be redefined; inherited methods must have identical signatures)
+  - Checks for a Main method with a main() method
+
+The second pass traverses the AST. We only do our second pass if the first pass comes back error-free.
+The second pass:
+- Recursively visits and "semants" every node. Every node is responsbile for checking its own inference rules (in the C, M, and O contexts dictated by the Context object) and calling semant on all of its children.
+- This pass catches many errors, including:
+  - mismatched return 
