@@ -364,7 +364,7 @@ class programc extends Program {
         Features methods = context.getMethods(name);
         for(Enumeration e = methods.getElements(); e.hasMoreElements();){
             method met = (method) e.nextElement();
-            System.out.println("class " + name + " has method " + met.name);
+            //System.out.println("class_c semant: class " + name + " has method " + met.name);
             met.semant(context);
         }
 
@@ -424,11 +424,17 @@ class method extends Feature {
     public void semant(Context context){
         context.enterMethod(this);
 		AbstractSymbol expr_type = expr.semant(context);
-			if (!context.isSubclassOf(expr_type, return_type)) {
-				context.semantError(this).println("Method " + name + 
-					   " returns incorrect value type. Expected " +
-						return_type + " but got " + expr_type);
-			}
+
+        //System.out.println("method.semant: (pre) expr_type = " + expr_type + ", name = " + name);
+        if(expr_type == TreeConstants.SELF_TYPE) expr_type = context.currentClass();
+
+        //we skip methods whose expression returns No_type, since this is only possible
+        //in the malformed "starter methods", never from real code (or you'd get a parse error)
+		if (expr_type != TreeConstants.No_type && !context.isSubclassOf(expr_type, return_type)) {
+			context.semantError(this).println("Method " + name + 
+				   " returns incorrect value type. Expected " +
+					return_type + " but got " + expr_type);
+		}
 
         context.leaveMethod();
     }
@@ -479,7 +485,7 @@ class attr extends Feature {
 	
     public void semant(Context context){
         AbstractSymbol initType = init.semant(context);
-        AbstractSymbol evalTypeDecl = context.varTypeWithSelf(type_decl);
+        AbstractSymbol evalTypeDecl = context.validateType(type_decl);
 		if ( !context.classDefined(evalTypeDecl) ){
 			context.semantError(this).println("Class attribute " + name +
 											  " of undeclared type " +
@@ -601,7 +607,7 @@ class assign extends Expression {
     }
 
 	public AbstractSymbol semant(Context context) {
-		AbstractSymbol varType = context.getVarType(name);
+		AbstractSymbol varType = context.getTypeFromName(name);
 		AbstractSymbol exprType = expr.semant(context);
 		if (varType != null && exprType != null &&
 			context.isSubclassOf(exprType, varType)) {
@@ -681,8 +687,8 @@ class static_dispatch extends Expression {
 					} //if
 				} //for each arg
 			}
-			set_type(context.varTypeWithSelf(context.getReturnType(type_name, name)));
-			return context.varTypeWithSelf(context.getReturnType(type_name, name));
+			set_type(context.validateType(context.getReturnType(type_name, name)));
+			return context.validateType(context.getReturnType(type_name, name));
 		}
 	}
 
@@ -735,10 +741,12 @@ class dispatch extends Expression {
     }
 
 	public AbstractSymbol semant(Context context) {
-		AbstractSymbol callingExpr = context.varTypeWithSelf(expr.semant(context));
-		Formals argList = context.getParameters(name);
+		AbstractSymbol callingExprType = context.validateType(expr.semant(context));
+
+		Formals argList = context.getParameters(callingExprType, name);
 		if (argList.getLength() != actual.getLength()) {
-			context.semantError(this).println("Dispatch argument list length does not math method's formal list length.");
+			context.semantError(this).println("Dispatch argument list length does not match method's formal list length. Method requires " 
+                + argList.getLength() + " parameters, received " + actual.getLength() + " args.");
 		} else { //method and formal lengths match
 			for (int i = 0; i < argList.getLength(); i++) {
 				AbstractSymbol argType =
@@ -748,8 +756,12 @@ class dispatch extends Expression {
 				} //if
 			} //for each arg
 		}
-		set_type(context.varTypeWithSelf(context.getReturnType(name)));
-		return context.varTypeWithSelf(context.getReturnType(name));
+
+        AbstractSymbol returnType = context.getReturnType(callingExprType, name);
+        if(returnType == TreeConstants.SELF_TYPE) returnType = callingExprType;
+
+		set_type(context.validateType(returnType));
+		return context.validateType(returnType);
 	}
 
     public TreeNode copy() {
@@ -1012,7 +1024,7 @@ class let extends Expression {
 
 	public AbstractSymbol semant(Context context) {
 		AbstractSymbol initType = init.semant(context);
-		AbstractSymbol declaredType = context.varTypeWithSelf(type_decl);
+		AbstractSymbol declaredType = context.validateType(type_decl);
 		if (!context.isSubclassOf(initType, declaredType)) {
 			context.semantError(this).println("Initialization of variable in let statement does not match declared type.");
 		}
@@ -1678,10 +1690,12 @@ class no_expr extends Expression {
     public no_expr(int lineNumber) {
         super(lineNumber);
     }
+
 	public AbstractSymbol semant(Context context) {
 		set_type(TreeConstants.No_type);
 		return TreeConstants.No_type;
 	}
+
     public TreeNode copy() {
         return new no_expr(lineNumber);
     }
@@ -1715,7 +1729,7 @@ class object extends Expression {
         name = a1;
     }
 	public AbstractSymbol semant(Context context) {
-		AbstractSymbol sym = context.getVarType(name);
+		AbstractSymbol sym = context.getTypeFromName(name);
 		set_type(sym);
 		return sym;
 	}

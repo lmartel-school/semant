@@ -1,6 +1,8 @@
-rm *.ref.out -f
-rm *.ref.errors -f
-FILES="./*.cl"
+make semant
+rm ./test/*.out -f
+rm ./test/*.errors -f
+#FILES="./test/good.cl"
+FILES="./test/*.cl"
 for f in $FILES
 do
     echo "reference semant: '$f'"
@@ -9,26 +11,28 @@ do
     rm "parser.out" -f
     mv "semant.out" "$f.ref.out"
     echo "my-semant: '$f'"
-    ../mysemant "$f" > "$f.my.errors" 2>&1
+    ./mycoolc -k "$f" > "$f.my.errors" 2>&1
     rm "lexer.out" -f
     rm "parser.out" -f
     mv "semant.out" "$f.my.out"
 done
 for f in $FILES
 do
-    diff "$f.ref.out" "$f.my.out" > out.tmpdiff
-    diff "$f.ref.errors" "$f.my.errors" > errors.tmpdiff
-    if[[ -s out.tmpdiff] -a [ -s errors.tmpdiff]]
+    out=`diff "$f.ref.out" "$f.my.out"`
+    errors=`diff "$f.ref.errors" "$f.my.errors"`
+    # out = errors only when both equal
+    if [ "$out" == "$errors" ]
     then
 	echo "'$f' passes!"
     else
 	echo "begin AST diff: '$f' (ours on right)"
-	cat out.tmpdiff
+	diff "$f.ref.out" "$f.my.out"
 	echo "end AST diff"
 	echo "begin errors diff: '$f' (ours on right)"
-	cat errors.tmpdiff
+	diff "$f.ref.errors" "$f.my.errors"
 	echo "end errors diff"
     fi
-    rm *.tmpdiff -f
 done
 rm *.s -f
+rm ./test/*.out -f
+rm ./test/*.errors -f

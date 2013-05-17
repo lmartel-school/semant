@@ -1,4 +1,0 @@
-"./badoverride.cl", line 22: syntax error at or near ';'
-"./badoverride.cl", line 24: syntax error at or near '}'
-Compilation halted due to lex and parse errors
-parser returned error code: 1

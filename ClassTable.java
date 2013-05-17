@@ -188,13 +188,14 @@ class ClassTable {
 			class_c currClass = (class_c)cls.getNth(i);
 			if (classes.containsKey(currClass.getName())) {
 				semantError(currClass).println(
-				  "Class " + currClass.getName() + " is double defined.");
+				  "Class " + currClass.getName() + " was previously defined.");
 			}
 			classes.put(currClass.getName(), currClass);
 		}
 		
 		for (Map.Entry<AbstractSymbol, class_c> kvPair :
 				 classes.entrySet()) {
+      verifyClass(kvPair.getValue(), false);
 			verifyInheritanceGraph(kvPair); 
 			/*if class heirarchy is malformed, that error is found here
 				 and we exit in semant(program)*/ 
@@ -207,6 +208,19 @@ class ClassTable {
 	}
 	
 	public boolean isSubClassOf(AbstractSymbol ch, AbstractSymbol par) {
+
+    if(ch == TreeConstants.SELF_TYPE && par == TreeConstants.SELF_TYPE) return true;
+    if(par == TreeConstants.SELF_TYPE) return false;
+
+    if(ch == TreeConstants.SELF_TYPE && par != TreeConstants.SELF_TYPE){
+      System.out.println("an illegal child SELF_TYPE snuck into isSubClassOf!");
+      int x = 1 / 0;
+      System.exit(1);
+    }
+    assert ch != null && par != null : "don't pass nulls into isSubClassOf!";
+
+    //System.out.println("isSubClassOf: child is " + ch + ", parent is " + par);
+
 		class_c parentClass = classes.get(par);
 		
 		if (parentClass == null) {
@@ -252,8 +266,12 @@ class ClassTable {
 		
 	}
 
-	public void verifyClass(class_c curr) {
-		Features allFeats = getAllFeatures(curr, true);
+  public void verifyClass(class_c curr){
+    verifyClass(curr, true);
+  }
+
+	private void verifyClass(class_c curr, boolean errors) {
+		Features allFeats = getAllFeatures(curr, errors);
     
     //special case: Main must have a main() [zero args]
     //and it must be defined in Main, not just inherited
@@ -265,7 +283,7 @@ class ClassTable {
           if(met.name == TreeConstants.main_meth && met.formals.getLength() == 0) return;
         } 
       }
-      semantError(curr).println("Class Main does not contain a main() method.");
+      semantError(curr).println("No 'main' method in class Main.");
     }
 	}
 		
@@ -323,7 +341,7 @@ class ClassTable {
           //run ./mysemant test/good.cl,
           //and see that this tries to add methods type_name, copy, and abort (from IO)
           //to class C.
-          System.out.println("Class " + cur.name + " has method " + curMethod.name);
+          //System.out.println("addImmediateFeatures: class " + cur.name + " has method " + curMethod.name);
           
 					allFeats.appendElement(curFeats.getNth(i));
 					//don't include duplicates of method names
@@ -359,6 +377,9 @@ class ClassTable {
 							} //end if !hasIdenticalSignature
 					} else { // new method name
 						methods.put(curMethod.name, curMethod);
+
+            //System.out.println("addInheritedFeatures: class " + cur.name + " has method " + curMethod.name);
+
 						allFeats.appendElement(curFeats.getNth(i));
 						//don't include duplicates of method names
 					}

@@ -21,7 +21,7 @@ Class C inherits A {
 
   test() : Bool {
     b
-  }
+  };
 };
 
 class Main {
@@ -31,6 +31,7 @@ class Main {
       (new B).init(2, true);
       (new C).init(3, false);
       (new C).test();
+      (new C);
     }
   };
 };

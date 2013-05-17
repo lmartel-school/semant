@@ -84,19 +84,19 @@ class Context {
     return n.type_name;
   }
 
-	  public AbstractSymbol varTypeWithSelf(AbstractSymbol type) {
-		  if (type == TreeConstants.SELF_TYPE) return currentClass;
-		  return type;
-	  }
+  public AbstractSymbol validateType(AbstractSymbol type) {
+	  //if (type == TreeConstants.SELF_TYPE) return currentClass;
+	  return type;
+  }
 
-  public AbstractSymbol getVarType(AbstractSymbol name){
-    if(name == TreeConstants.self) return currentClass;
+  public AbstractSymbol getTypeFromName(AbstractSymbol name){
+    if(name == TreeConstants.self) return TreeConstants.SELF_TYPE;
     return (AbstractSymbol) variables.lookup(name);
   }
 
   public boolean varDefined(AbstractSymbol name){
     if(name == TreeConstants.self) return true;
-    return getVarType(name) != null;
+    return getTypeFromName(name) != null;
   }
 
   public AbstractSymbol currentClass() {
@@ -114,11 +114,17 @@ class Context {
   public Formals getParameters(AbstractSymbol className, AbstractSymbol methodName){
     assert className != null;
     Features classMethods = classes.getMethods(className);
+
+    //System.out.println("getParameters: class " + className + ", looking for method " + methodName);
+    
     for(int i = 0; i < classMethods.getLength(); i++){
       method met = (method) classMethods.getNth(i);
-      if(met.name.equals(methodName)) return met.formals;
+
+      //System.out.println("getParameters: method found, " + met.name);
+
+      if(met.name == methodName) return met.formals;
     }
-    return null;
+    return new Formals(classMethods.getLineNumber());
   }
 
   public AbstractSymbol getReturnType(AbstractSymbol methodName){
