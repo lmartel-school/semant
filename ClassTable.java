@@ -212,16 +212,6 @@ class ClassTable {
 	
 	public boolean isSubClassOf(AbstractSymbol ch, AbstractSymbol par) {
 
-    if(ch == TreeConstants.SELF_TYPE && par == TreeConstants.SELF_TYPE) return true;
-    if(par == TreeConstants.SELF_TYPE) return false;
-
-    if(ch == TreeConstants.SELF_TYPE && par != TreeConstants.SELF_TYPE){
-      System.out.println("an illegal child SELF_TYPE snuck into isSubClassOf!");
-      int x = 1 / 0;
-      System.exit(1);
-    }
-    assert ch != null && par != null : "don't pass nulls into isSubClassOf!";
-
     //System.out.println("isSubClassOf: child is " + ch + ", parent is " + par);
 
 		class_c parentClass = classes.get(par);
@@ -246,6 +236,7 @@ class ClassTable {
 
 	public class_c leastUpperBound(AbstractSymbol one, AbstractSymbol two)
 	{
+
 		Set<AbstractSymbol> found = new HashSet<AbstractSymbol>();
 		while (one != TreeConstants.Object_) {
 			found.add(one);

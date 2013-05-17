@@ -156,11 +156,21 @@ class Context {
   /* Hooks into ClassTable */
 
   public boolean isSubclassOf(AbstractSymbol child, AbstractSymbol parent){
+    //special cases for SELF_TYPE subclassing
+    if(child == TreeConstants.SELF_TYPE && parent == TreeConstants.SELF_TYPE) return true;
+    if(parent == TreeConstants.SELF_TYPE) return false;
+    
+    //fix expr_type to allow for SELF_TYPEc <= T
+    if(child == TreeConstants.SELF_TYPE && parent != TreeConstants.SELF_TYPE) child = currentClass;
     return classes.isSubClassOf(child, parent);
   }
 
-  public class_c leastUpperBound(AbstractSymbol one, AbstractSymbol two){
-    return classes.leastUpperBound(one, two);
+  public AbstractSymbol leastUpperBound(AbstractSymbol one, AbstractSymbol two){
+    //special case: both SELF_TYPE
+    if(one == TreeConstants.SELF_TYPE && two == TreeConstants.SELF_TYPE) return TreeConstants.SELF_TYPE;
+    if(one == TreeConstants.SELF_TYPE) one = currentClass;
+    if(two == TreeConstants.SELF_TYPE) two = currentClass;
+    return classes.leastUpperBound(one, two).name;
   }
 
   public Features getAttrs(AbstractSymbol name){

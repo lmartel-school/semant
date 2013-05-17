@@ -10,7 +10,7 @@ import java.util.Enumeration;
 import java.io.PrintStream;
 import java.util.Vector;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.HashSet;
 
 
 /** Defines simple phylum Program */
@@ -425,9 +425,6 @@ class method extends Feature {
         context.enterMethod(this);
 		AbstractSymbol expr_type = expr.semant(context);
 
-        //fix expr_type to allow for SELF_TYPEc <= T
-        if(expr_type == TreeConstants.SELF_TYPE && return_type != TreeConstants.SELF_TYPE) expr_type = context.currentClass();
-
         //we skip methods whose expression returns No_type, since this is only possible
         //in the malformed "starter methods", never from real code (or you'd get a parse error)
 		if (expr_type != TreeConstants.No_type && !context.isSubclassOf(expr_type, return_type)) {
@@ -481,7 +478,6 @@ class attr extends Feature {
         dump_AbstractSymbol(out, n + 2, type_decl);
 		init.dump_with_types(out, n + 2);
     }
-	
 	
     public void semant(Context context){
         AbstractSymbol initType = init.semant(context);
@@ -831,10 +827,10 @@ class cond extends Expression {
 			context.semantError(this).println(
 			 "Non-boolean expression in if-statement predicate.");
 		}
-		class_c lub = context.leastUpperBound(
+		AbstractSymbol lub = context.leastUpperBound(
 				then_exp.semant(context), else_exp.semant(context));
-		set_type(lub.getName());
-		return lub.getName();
+		set_type(lub);
+		return lub;
 	}
     public TreeNode copy() {
         return new cond(lineNumber, (Expression)pred.copy(), (Expression)then_exp.copy(), (Expression)else_exp.copy());
@@ -928,17 +924,20 @@ class typcase extends Expression {
 
 	public AbstractSymbol semant(Context context) {
 		expr.semant(context);
-		Set<AbstractSymbol> used = new TreeSet<AbstractSymbol>();
+		Set<AbstractSymbol> used = new HashSet<AbstractSymbol>();
 		//case vars must have distinct types
-		AbstractSymbol lub = ((branch)cases.getNth(0)).semant(context);
-		used.add(lub);
-		for (int i = 0; i < cases.getLength(); i++) {
-			AbstractSymbol curr = ((branch)cases.getNth(i)).semant(context);
-			if (used.contains(curr)) {
-				context.semantError(this).println("Case statement has duplicated var types in distinct branches.");
+        branch brah = (branch)cases.getNth(0);
+		AbstractSymbol lub = brah.semant(context);
+		used.add(brah.type_decl);
+		for (int i = 1; i < cases.getLength(); i++) {
+            brah = (branch) cases.getNth(i);
+			AbstractSymbol exprResult = brah.semant(context);
+            AbstractSymbol declaredType = brah.type_decl;
+			if (used.contains(declaredType)) {
+				context.semantError(this).println("Case statement has duplicated var type " + declaredType + " in distinct branches.");
 			}
-			used.add(curr);
-			lub = context.leastUpperBound(lub, curr).name;
+			used.add(declaredType);
+			lub = context.leastUpperBound(lub, exprResult);
 		}
 		set_type(lub);
 		return lub;
@@ -1039,7 +1038,7 @@ class let extends Expression {
 	public AbstractSymbol semant(Context context) {
 		AbstractSymbol initType = init.semant(context);
 		AbstractSymbol declaredType = context.validateType(type_decl);
-		if (!context.isSubclassOf(initType, declaredType)) {
+		if (initType != TreeConstants.No_type && !context.isSubclassOf(initType, declaredType)) {
 			context.semantError(this).println("Initialization of variable in let statement does not match declared type.");
 		}
 		context.enterLet(this);
