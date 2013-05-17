@@ -425,8 +425,8 @@ class method extends Feature {
         context.enterMethod(this);
 		AbstractSymbol expr_type = expr.semant(context);
 
-        //System.out.println("method.semant: (pre) expr_type = " + expr_type + ", name = " + name);
-        if(expr_type == TreeConstants.SELF_TYPE) expr_type = context.currentClass();
+        //fix expr_type to allow for SELF_TYPEc <= T
+        if(expr_type == TreeConstants.SELF_TYPE && return_type != TreeConstants.SELF_TYPE) expr_type = context.currentClass();
 
         //we skip methods whose expression returns No_type, since this is only possible
         //in the malformed "starter methods", never from real code (or you'd get a parse error)
@@ -486,7 +486,7 @@ class attr extends Feature {
     public void semant(Context context){
         AbstractSymbol initType = init.semant(context);
         AbstractSymbol evalTypeDecl = context.validateType(type_decl);
-		if ( !context.classDefined(evalTypeDecl) ){
+		if (type_decl != TreeConstants.SELF_TYPE && !context.classDefined(evalTypeDecl) ){
 			context.semantError(this).println("Class attribute " + name +
 											  " of undeclared type " +
 											  evalTypeDecl);
@@ -669,8 +669,9 @@ class static_dispatch extends Expression {
     }
 
 	public AbstractSymbol semant(Context context) {
-		AbstractSymbol callingExpr = expr.semant(context);
-		if (!context.isSubclassOf(callingExpr, type_name)) {
+		AbstractSymbol callingExprType = expr.semant(context);
+
+		if (!context.isSubclassOf(callingExprType, type_name)) {
 			context.semantError(this).println("Trying to statically dispatch from non-inherited class " + type_name);
 			set_type(TreeConstants.Object_);
 			return TreeConstants.Object_;
@@ -687,8 +688,12 @@ class static_dispatch extends Expression {
 					} //if
 				} //for each arg
 			}
-			set_type(context.validateType(context.getReturnType(type_name, name)));
-			return context.validateType(context.getReturnType(type_name, name));
+
+            AbstractSymbol returnType = context.getReturnType(type_name, name);
+            if(returnType == TreeConstants.SELF_TYPE) returnType = callingExprType;
+
+			set_type(returnType);
+			return returnType;
 		}
 	}
 
@@ -1617,9 +1622,11 @@ class new_ extends Expression {
     }
 
 	public AbstractSymbol semant(Context context) {
-		set_type(context.newKeywordType(this));
-		return context.newKeywordType(this);
-	}
+		//set_type(context.newKeywordType(this));
+		//return context.newKeywordType(this);
+        set_type(type_name);
+	   return type_name;
+    }
 
     public TreeNode copy() {
         return new new_(lineNumber, copy_AbstractSymbol(type_name));

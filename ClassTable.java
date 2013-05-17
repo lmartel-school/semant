@@ -193,13 +193,16 @@ class ClassTable {
 			classes.put(currClass.getName(), currClass);
 		}
 		
+    boolean mainExists = false;
 		for (Map.Entry<AbstractSymbol, class_c> kvPair :
 				 classes.entrySet()) {
-      verifyClass(kvPair.getValue(), false);
+      if(verifyClass(kvPair.getValue(), true)) mainExists = true;
 			verifyInheritanceGraph(kvPair); 
 			/*if class heirarchy is malformed, that error is found here
 				 and we exit in semant(program)*/ 
 		}
+
+    if(!mainExists) semantError().println("Class Main is not defined.");
 	}
 
 	public class_c getClass(AbstractSymbol sym) {
@@ -267,11 +270,12 @@ class ClassTable {
 	}
 
   public void verifyClass(class_c curr){
-    verifyClass(curr, true);
+    verifyClass(curr, false);
   }
 
-	private void verifyClass(class_c curr, boolean errors) {
-		Features allFeats = getAllFeatures(curr, errors);
+  //returns a boolean signifiying whether the class was "Main"
+	private boolean verifyClass(class_c curr, boolean reportErrors) {
+		Features allFeats = getAllFeatures(curr, reportErrors);
     
     //special case: Main must have a main() [zero args]
     //and it must be defined in Main, not just inherited
@@ -280,11 +284,14 @@ class ClassTable {
         Feature next = (Feature) e.nextElement();
         if(next instanceof method){
           method met = (method) next;
-          if(met.name == TreeConstants.main_meth && met.formals.getLength() == 0) return;
+          if(met.name == TreeConstants.main_meth && met.formals.getLength() == 0) return true;
         } 
       }
       semantError(curr).println("No 'main' method in class Main.");
+      return true;
     }
+
+    return false;
 	}
 		
   //gets the features of the current class and all its parents

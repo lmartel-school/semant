@@ -75,8 +75,8 @@ submit: semant
 %.class : %.java TokenConstants.class cool-tree.class
 	${JAVAC} -d . -sourcepath .:src -classpath ${CLASSPATH} $<
 
-%.class : src/%.java TokenConstants.class cool-tree.class
-	${JAVAC} -d . -sourcepath .:src -classpath ${CLASSPATH} $<
+#%.class : src/%.java TokenConstants.class cool-tree.class
+#	${JAVAC} -d . -sourcepath .:src -classpath ${CLASSPATH} $<
 
 # dummy dependency
 cool-tree.class : ./cool-tree.java

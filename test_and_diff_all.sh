@@ -1,7 +1,7 @@
 make semant
 rm ./test/*.out -f
 rm ./test/*.errors -f
-#FILES="./test/good.cl"
+#FILES="./test/good_omgselftype.cl"
 FILES="./test/*.cl"
 for f in $FILES
 do
@@ -34,5 +34,5 @@ do
     fi
 done
 rm *.s -f
-rm ./test/*.out -f
-rm ./test/*.errors -f
+#rm ./test/*.out -f
+#rm ./test/*.errors -f

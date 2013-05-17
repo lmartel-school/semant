@@ -34,7 +34,7 @@ class Context {
     for(int i = 0; i < attrs.getLength(); i++){
       attr nextAttr = (attr) attrs.getNth(i);
       AbstractSymbol type = nextAttr.type_decl;
-      if(type == TreeConstants.SELF_TYPE) type = cur.getName();
+      //if(type == TreeConstants.SELF_TYPE) type = cur.getName();
       variables.addId(nextAttr.name, type);
     }
   }
@@ -79,10 +79,10 @@ class Context {
     popScope();
   }
 
-  public AbstractSymbol newKeywordType(new_ n){
-    if(n.type_name == TreeConstants.SELF_TYPE) return currentClass;
-    return n.type_name;
-  }
+  // public AbstractSymbol newKeywordType(new_ n){
+  //   if(n.type_name == TreeConstants.SELF_TYPE) return currentClass;
+  //   return n.type_name;
+  // }
 
   public AbstractSymbol validateType(AbstractSymbol type) {
 	  //if (type == TreeConstants.SELF_TYPE) return currentClass;
@@ -143,7 +143,6 @@ class Context {
       }
     }
     if(returnType == null || returnType == TreeConstants.No_type) return null;
-    if(returnType == TreeConstants.SELF_TYPE) return className;
     return returnType;
   }
 
