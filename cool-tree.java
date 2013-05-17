@@ -747,8 +747,9 @@ class dispatch extends Expression {
 
 	public AbstractSymbol semant(Context context) {
 		AbstractSymbol callingExprType = context.validateType(expr.semant(context));
+        AbstractSymbol evaluatedExprType = (callingExprType == TreeConstants.SELF_TYPE ? context.currentClass() : callingExprType);
 
-		Formals argList = context.getParameters(callingExprType, name);
+		Formals argList = context.getParameters(evaluatedExprType, name);
 		if (argList.getLength() != actual.getLength()) {
 			context.semantError(this).println("Dispatch argument list length does not match method's formal list length. Method requires " 
                 + argList.getLength() + " parameters, received " + actual.getLength() + " args.");
@@ -762,11 +763,19 @@ class dispatch extends Expression {
 			} //for each arg
 		}
 
-        AbstractSymbol returnType = context.getReturnType(callingExprType, name);
-        if(returnType == TreeConstants.SELF_TYPE) returnType = callingExprType;
+        //if expr evaluates to self type and method evaluates to self type, return self type
+        //if exactly one does, return the other thing
+        //if neither does, return the return type
+        AbstractSymbol returnType = context.getReturnType(evaluatedExprType, name);
+        AbstractSymbol finalType;
+        if(returnType == TreeConstants.SELF_TYPE){
+            finalType = callingExprType;
+        } else {
+            finalType = returnType;
+        }
 
-		set_type(context.validateType(returnType));
-		return context.validateType(returnType);
+		set_type(finalType);
+		return finalType;
 	}
 
     public TreeNode copy() {
